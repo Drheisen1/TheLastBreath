@@ -1,4 +1,4 @@
-﻿#include <SKSE/SKSE.h>
+#include <SKSE/SKSE.h>
 #include "SIGA/AnimationHandler.h"
 #include "SIGA/CombatEventHandler.h"  
 #include "SIGA/SlowMotion.h"
@@ -35,7 +35,6 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface*, 
 namespace {
     std::atomic<bool> g_registered = false;
     std::atomic<bool> g_gameLoaded = false;
-    std::atomic<int> g_attemptCount = 0;
 
     class InputEventHandler : public RE::BSTEventSink<RE::InputEvent*> {
     public:
@@ -48,7 +47,13 @@ namespace {
             RE::InputEvent* const* a_event,
             RE::BSTEventSource<RE::InputEvent*>* a_eventSource) override
         {
-            if (!g_gameLoaded.load() || g_registered.load()) {
+            
+            if (g_registered.load()) {
+                return RE::BSEventNotifyControl::kContinue;
+            }
+
+            
+            if (!g_gameLoaded.load()) {
                 return RE::BSEventNotifyControl::kContinue;
             }
 
@@ -56,30 +61,24 @@ namespace {
                 return RE::BSEventNotifyControl::kContinue;
             }
 
+            
             if (g_registered.exchange(true)) {
                 return RE::BSEventNotifyControl::kContinue;
             }
 
+            
             auto player = RE::PlayerCharacter::GetSingleton();
             if (player) {
                 bool result = player->AddAnimationGraphEventSink(SIGA::AnimationEventHandler::GetSingleton());
                 if (result) {
                     logger::info("Animation events registered for player");
-                }
-                else {
-                    int attempts = g_attemptCount.fetch_add(1);
+                    
+                } else {
+                    
                     g_registered.store(false);
-
-                    if (attempts == 50) {
-                        logger::warn("Animation graph not ready yet, still trying...");
-                    }
-                    else if (attempts > 100) {
-                        logger::error("Failed to register after 100 attempts, giving up");
-                        g_registered.store(true);
-                    }
                 }
-            }
-            else {
+            } else {
+                
                 g_registered.store(false);
             }
 
@@ -119,8 +118,7 @@ namespace {
             if (auto inputManager = RE::BSInputDeviceManager::GetSingleton()) {
                 inputManager->AddEventSink(InputEventHandler::GetSingleton());
                 logger::info("Input event handler registered");
-            }
-            else {
+            } else {
                 logger::error("Failed to get input device manager");
             }
 
@@ -128,11 +126,10 @@ namespace {
             if (auto scriptEventSource = RE::ScriptEventSourceHolder::GetSingleton()) {
                 scriptEventSource->AddEventSink(SIGA::CombatEventHandler::GetSingleton());
                 logger::info("Combat event handler registered for NPC tracking");
-            }
-            else {
+            } else {
                 logger::error("Failed to get script event source");
             }
-
+            
             break;
         }
 
@@ -141,12 +138,12 @@ namespace {
         {
             logger::info("kPostLoadGame/kNewGame message received");
 
+            
             g_registered.store(false);
             g_gameLoaded.store(true);
-            g_attemptCount.store(0);
 
             SIGA::SlowMotionManager::GetSingleton()->ClearAll();
-            logger::info("Waiting for first input to register animation events...");
+            logger::info("Ready - animation events will register on first player input");
             break;
         }
         }
