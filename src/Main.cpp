@@ -1,4 +1,4 @@
-#include <SKSE/SKSE.h>
+﻿#include <SKSE/SKSE.h>
 #include "SIGA/AnimationHandler.h"
 #include "SIGA/CombatEventHandler.h"  
 #include "SIGA/SlowMotion.h"
@@ -71,7 +71,7 @@ namespace {
             if (player) {
                 bool result = player->AddAnimationGraphEventSink(SIGA::AnimationEventHandler::GetSingleton());
                 if (result) {
-                    logger::info("Animation events registered for player");
+                    logger::debug("Animation events registered for player");
                     
                 } else {
                     
@@ -110,14 +110,14 @@ namespace {
         switch (a_msg->type) {
         case SKSE::MessagingInterface::kDataLoaded:
         {
-            logger::info("kDataLoaded message received");
+            logger::debug("kDataLoaded message received");
             SIGA::Config::GetSingleton()->Load();
             logger::info("Configuration loaded");
 
             // Register input event handler for player
             if (auto inputManager = RE::BSInputDeviceManager::GetSingleton()) {
                 inputManager->AddEventSink(InputEventHandler::GetSingleton());
-                logger::info("Input event handler registered");
+                logger::debug("Input event handler registered");
             } else {
                 logger::error("Failed to get input device manager");
             }
@@ -125,7 +125,7 @@ namespace {
             // Register combat event handler for NPCs
             if (auto scriptEventSource = RE::ScriptEventSourceHolder::GetSingleton()) {
                 scriptEventSource->AddEventSink(SIGA::CombatEventHandler::GetSingleton());
-                logger::info("Combat event handler registered for NPC tracking");
+                logger::debug("Combat event handler registered for NPC tracking");
             } else {
                 logger::error("Failed to get script event source");
             }
@@ -136,14 +136,14 @@ namespace {
         case SKSE::MessagingInterface::kPostLoadGame:
         case SKSE::MessagingInterface::kNewGame:
         {
-            logger::info("kPostLoadGame/kNewGame message received");
+            logger::debug("kPostLoadGame/kNewGame message received");
 
             
             g_registered.store(false);
             g_gameLoaded.store(true);
 
             SIGA::SlowMotionManager::GetSingleton()->ClearAll();
-            logger::info("Ready - animation events will register on first player input");
+            logger::debug("Ready - animation events will register on first player input");
             break;
         }
         }

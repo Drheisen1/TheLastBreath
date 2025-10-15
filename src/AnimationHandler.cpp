@@ -94,6 +94,15 @@ namespace SIGA {
             }
         }
 
+        // WEAPON DRAW/SHEATHE EVENTS (fixes R key not clearing slowdowns)
+        else if (eventName == "weaponSheathe") {
+            // Clear all slowdowns when weapon state changes
+            if (slowMgr->IsActorSlowed(actor)) {
+                logger::debug("Weapon state changed - clearing slowdowns");
+                slowMgr->ClearAllSlowdowns(actor);
+            }
+        }
+
         return RE::BSEventNotifyControl::kContinue;
     }
 
@@ -141,6 +150,12 @@ namespace SIGA {
             return;
         }
 
+        // Check if spell modifies SpeedMult - if so, skip slowdown
+        if (SpellModifiesSpeed(leftSpell)) {
+            logger::debug("Left spell modifies speed - skipping slowdown");
+            return;
+        }
+
         float skillLevel = GetMagicSkillLevel(actor, leftSpell);
         logger::debug("Left hand: {} (skill: {})", leftSpell->GetName(), skillLevel);
         SlowMotionManager::GetSingleton()->ApplySlowdown(actor, SlowType::CastLeft, skillLevel);
@@ -158,10 +173,17 @@ namespace SIGA {
             return;
         }
 
+        // Check if spell modifies SpeedMult - if so, skip slowdown
+        if (SpellModifiesSpeed(rightSpell)) {
+            logger::debug("Right spell modifies speed - skipping slowdown");
+            return;
+        }
+
         float skillLevel = GetMagicSkillLevel(actor, rightSpell);
         logger::debug("Right hand: {} (skill: {})", rightSpell->GetName(), skillLevel);
         SlowMotionManager::GetSingleton()->ApplySlowdown(actor, SlowType::CastRight, skillLevel);
     }
+
     void AnimationEventHandler::OnCastRelease(RE::Actor* actor) {
         // remove all casting slowdowns when cast stops
         auto slowMgr = SlowMotionManager::GetSingleton();
@@ -200,6 +222,25 @@ namespace SIGA {
         }
 
         return avOwner->GetActorValue(school);
+    }
+
+    bool AnimationEventHandler::SpellModifiesSpeed(RE::MagicItem* spell) {
+        if (!spell) return false;
+
+        auto spellItem = spell->As<RE::SpellItem>();
+        if (!spellItem) return false;
+
+        // Check all magic effects in the spell
+        for (auto effect : spellItem->effects) {
+            if (effect && effect->baseEffect) {
+                // Check if effect modifies SpeedMult actor value
+                if (effect->baseEffect->data.primaryAV == RE::ActorValue::kSpeedMult) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
 } 

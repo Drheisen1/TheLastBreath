@@ -42,7 +42,7 @@ namespace SIGA {
             // Try to register animation events
             if (actor->AddAnimationGraphEventSink(AnimationEventHandler::GetSingleton())) {
                 registeredNPCs.insert(formID);
-                logger::info("Registered animation events for NPC: {} (FormID: {:X})",
+                logger::debug("Registered animation events for NPC: {} (FormID: {:X})",
                     actor->GetName(), formID);
             }
             else {
