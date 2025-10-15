@@ -1,8 +1,8 @@
-#include "SIGA/CombatEventHandler.h"
-#include "SIGA/AnimationHandler.h"
-#include "SIGA/Config.h"
+#include "TheLastBreath/CombatEventHandler.h"
+#include "TheLastBreath/AnimationHandler.h"
+#include "TheLastBreath/Config.h"
 
-namespace SIGA {
+namespace TheLastBreath {
 
     RE::BSEventNotifyControl CombatEventHandler::ProcessEvent(
         const RE::TESCombatEvent* a_event,

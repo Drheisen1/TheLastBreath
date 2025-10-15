@@ -1,15 +1,15 @@
 ﻿#include <SKSE/SKSE.h>
-#include "SIGA/AnimationHandler.h"
-#include "SIGA/CombatEventHandler.h"  
-#include "SIGA/SlowMotion.h"
-#include "SIGA/Config.h"
+#include "TheLastBreath/AnimationHandler.h"
+#include "TheLastBreath/CombatEventHandler.h"  
+#include "TheLastBreath/SlowMotion.h"
+#include "TheLastBreath/Config.h"
 #include <atomic>
 
 using namespace SKSE;
 using namespace SKSE::log;
 
 namespace {
-    constexpr const char* PLUGIN_NAME = "SigaNG";
+    constexpr const char* PLUGIN_NAME = "TheLastBreath";
     constexpr const char* PLUGIN_AUTHOR = "Heisen";
     constexpr REL::Version PLUGIN_VERSION = { 1, 0, 0, 0 };
 }
@@ -69,7 +69,7 @@ namespace {
             
             auto player = RE::PlayerCharacter::GetSingleton();
             if (player) {
-                bool result = player->AddAnimationGraphEventSink(SIGA::AnimationEventHandler::GetSingleton());
+                bool result = player->AddAnimationGraphEventSink(TheLastBreath::AnimationEventHandler::GetSingleton());
                 if (result) {
                     logger::debug("Animation events registered for player");
                     
@@ -95,7 +95,7 @@ namespace {
         auto path = log_directory();
         if (!path) return;
 
-        *path /= "SigaNG.log";
+        *path /= "TheLastBreath.log";
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
         auto log = std::make_shared<spdlog::logger>("global log", std::move(sink));
 
@@ -111,7 +111,7 @@ namespace {
         case SKSE::MessagingInterface::kDataLoaded:
         {
             logger::debug("kDataLoaded message received");
-            SIGA::Config::GetSingleton()->Load();
+            TheLastBreath::Config::GetSingleton()->Load();
             logger::info("Configuration loaded");
 
             // Register input event handler for player
@@ -124,7 +124,7 @@ namespace {
 
             // Register combat event handler for NPCs
             if (auto scriptEventSource = RE::ScriptEventSourceHolder::GetSingleton()) {
-                scriptEventSource->AddEventSink(SIGA::CombatEventHandler::GetSingleton());
+                scriptEventSource->AddEventSink(TheLastBreath::CombatEventHandler::GetSingleton());
                 logger::debug("Combat event handler registered for NPC tracking");
             } else {
                 logger::error("Failed to get script event source");
@@ -142,7 +142,7 @@ namespace {
             g_registered.store(false);
             g_gameLoaded.store(true);
 
-            SIGA::SlowMotionManager::GetSingleton()->ClearAll();
+            TheLastBreath::SlowMotionManager::GetSingleton()->ClearAll();
             logger::debug("Ready - animation events will register on first player input");
             break;
         }

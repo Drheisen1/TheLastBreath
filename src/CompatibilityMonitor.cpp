@@ -1,9 +1,9 @@
-#include "SIGA/CompatibilityMonitor.h"
-#include "SIGA/SlowMotion.h"
+#include "TheLastBreath/CompatibilityMonitor.h"
+#include "TheLastBreath/SlowMotion.h"
 
 // Not being used, keepoing for backup
 
-namespace SIGA {
+namespace TheLastBreath {
     void CompatibilityMonitor::Update() {
         auto player = RE::PlayerCharacter::GetSingleton();
         if (!player) return;

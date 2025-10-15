@@ -1,7 +1,7 @@
-#include "SIGA/SlowMotion.h"
-#include "SIGA/Config.h"
+#include "TheLastBreath/SlowMotion.h"
+#include "TheLastBreath/Config.h"
 
-namespace SIGA {
+namespace TheLastBreath {
 
     SlowMotionManager* SlowMotionManager::GetSingleton() {
         static SlowMotionManager singleton;

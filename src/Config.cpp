@@ -1,9 +1,9 @@
-#include "SIGA/Config.h"
+#include "TheLastBreath/Config.h"
 #include <SimpleIni.h>
 
-namespace SIGA {
+namespace TheLastBreath {
     std::filesystem::path Config::GetConfigPath() {
-        auto path = std::filesystem::current_path() / "Data" / "SKSE" / "Plugins" / "SIGA.ini";
+        auto path = std::filesystem::current_path() / "Data" / "SKSE" / "Plugins" / "TheLastBreath.ini";
         return path;
     }
 

@@ -1,8 +1,8 @@
-#include "SIGA/AnimationHandler.h"
-#include "SIGA/SlowMotion.h"
-#include "SIGA/Config.h"
+#include "TheLastBreath/AnimationHandler.h"
+#include "TheLastBreath/SlowMotion.h"
+#include "TheLastBreath/Config.h"
 
-namespace SIGA {
+namespace TheLastBreath {
 
     AnimationEventHandler* AnimationEventHandler::GetSingleton() {
         static AnimationEventHandler singleton;
