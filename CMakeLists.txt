@@ -22,6 +22,7 @@ add_library(
     src/AnimationHandler.cpp
     src/CombatEventHandler.cpp
     src/SlowMotion.cpp
+    src/Hooks.cpp
     src/Config.cpp
 )
 

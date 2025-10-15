@@ -3,6 +3,7 @@
 #include "TheLastBreath/CombatEventHandler.h"  
 #include "TheLastBreath/SlowMotion.h"
 #include "TheLastBreath/Config.h"
+#include "TheLastBreath/Hooks.h"
 #include <atomic>
 
 using namespace SKSE;
@@ -99,19 +100,25 @@ namespace {
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
         auto log = std::make_shared<spdlog::logger>("global log", std::move(sink));
 
-        log->set_level(spdlog::level::info);
-        log->flush_on(spdlog::level::info);
+        // Load config early to get log level
+        auto config = TheLastBreath::Config::GetSingleton();
+        config->Load();
+
+        // Set log level from config
+        auto level = static_cast<spdlog::level::level_enum>(config->logLevel);
+        log->set_level(level);
+        log->flush_on(level);
 
         spdlog::set_default_logger(std::move(log));
         spdlog::set_pattern("[%H:%M:%S] [%l] %v");
     }
+
 
     void MessageHandler(SKSE::MessagingInterface::Message* a_msg) {
         switch (a_msg->type) {
         case SKSE::MessagingInterface::kDataLoaded:
         {
             logger::debug("kDataLoaded message received");
-            TheLastBreath::Config::GetSingleton()->Load();
             logger::info("Configuration loaded");
 
             // Register input event handler for player
@@ -156,6 +163,8 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
     logger::info("{} v{} loading...", PLUGIN_NAME, PLUGIN_VERSION.string());
 
     SKSE::Init(a_skse);
+
+    TheLastBreath::Hooks::Install();
 
     auto messaging = SKSE::GetMessagingInterface();
     if (!messaging->RegisterListener(MessageHandler)) {

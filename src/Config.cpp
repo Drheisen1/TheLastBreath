@@ -22,6 +22,7 @@ namespace TheLastBreath {
         // General settings
         enabled = ini.GetBoolValue("General", "bEnabled", true);
         applyToNPCs = ini.GetBoolValue("General", "bApplyToNPCs", false);
+        logLevel = ini.GetLongValue("General", "iLogLevel", 1);
 
         // Enable/Disable specific debuffs
         enableBowDebuff = ini.GetBoolValue("General", "bEnableBowDebuff", true);
