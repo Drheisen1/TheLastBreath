@@ -22,6 +22,6 @@ namespace TheLastBreath {
         void OnAttackStop(RE::Actor* actor);
 
         float GetMagicSkillLevel(RE::Actor* actor, RE::MagicItem* spell);
-        bool SpellModifiesSpeed(RE::MagicItem* spell);  // <-- ADD THIS
+        bool SpellModifiesSpeed(RE::MagicItem* spell);
     };
 }

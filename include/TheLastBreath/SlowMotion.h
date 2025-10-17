@@ -22,6 +22,7 @@ namespace TheLastBreath {
         void ClearAll();
 
         bool IsActorSlowed(RE::Actor* actor);
+        bool IsActorSlowedByType(RE::Actor* actor, SlowType type);
 
     private:
         SlowMotionManager() = default;

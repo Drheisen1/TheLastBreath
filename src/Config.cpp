@@ -19,40 +19,59 @@ namespace TheLastBreath {
             return;
         }
 
-        // General settings
-        enabled = ini.GetBoolValue("General", "bEnabled", true);
-        applyToNPCs = ini.GetBoolValue("General", "bApplyToNPCs", false);
-        logLevel = ini.GetLongValue("General", "iLogLevel", 1);
+        // ===== STAMINA =====
+        enableStaminaManagement = ini.GetBoolValue("Stamina", "bEnableStaminaManagement", true);
+        enableJumpStaminaCost = ini.GetBoolValue("Stamina", "bEnableJumpStaminaCost", true);
+        jumpStaminaCost = static_cast<float>(ini.GetDoubleValue("Stamina", "fJumpStaminaCost", 10.0));
+        enableBlockStaminaDrain = ini.GetBoolValue("Stamina", "bEnableBlockStaminaDrain", true);                              // new
+        blockHoldStaminaCostPerSecond = static_cast<float>(ini.GetDoubleValue("Stamina", "fBlockHoldStaminaCostPerSecond", 2.0));  // new
 
-        // Enable/Disable specific debuffs
-        enableBowDebuff = ini.GetBoolValue("General", "bEnableBowDebuff", true);
-        enableCrossbowDebuff = ini.GetBoolValue("General", "bEnableCrossbowDebuff", true);
-        enableCastDebuff = ini.GetBoolValue("General", "bEnableCastDebuff", true);
-        enableDualCastDebuff = ini.GetBoolValue("General", "bEnableDualCastDebuff", true);
+        // Melee Weapons
+        enableLightAttackStamina = ini.GetBoolValue("Stamina", "bEnableLightAttackStamina", true);
+        lightAttackStaminaCostMult = static_cast<float>(ini.GetDoubleValue("Stamina", "fLightAttackStaminaCost", 0.3));
 
-        // Bow multipliers
-        bowMultipliers[0] = static_cast<float>(ini.GetDoubleValue("Bow", "fNoviceMultiplier", 0.5));
-        bowMultipliers[1] = static_cast<float>(ini.GetDoubleValue("Bow", "fApprenticeMultiplier", 0.6));
-        bowMultipliers[2] = static_cast<float>(ini.GetDoubleValue("Bow", "fExpertMultiplier", 0.7));
-        bowMultipliers[3] = static_cast<float>(ini.GetDoubleValue("Bow", "fMasterMultiplier", 0.8));
+        // Ranged Weapons
+        enableRangedStaminaCost = ini.GetBoolValue("Stamina", "bEnableRangedStaminaCost", true);
+        enableRangedHoldStaminaDrain = ini.GetBoolValue("Stamina", "bEnableRangedHoldStaminaDrain", true);
+        enableRangedReleaseStaminaCost = ini.GetBoolValue("Stamina", "bEnableRangedReleaseStaminaCost", true);
+        rangedHoldStaminaCostPerSecond = static_cast<float>(ini.GetDoubleValue("Stamina", "fRangedHoldStaminaCostPerSecond", 3.0));
+        rangedReleaseStaminaCost = static_cast<float>(ini.GetDoubleValue("Stamina", "fRangedReleaseStaminaCost", 10.0));
+        enableRapidComboStaminaCost = ini.GetBoolValue("Stamina", "bEnableRapidComboStaminaCost", false);              // new
+        rapidComboStaminaCost = static_cast<float>(ini.GetDoubleValue("Stamina", "fRapidComboStaminaCost", 10.0));   // new
 
-        // Crossbow multipliers
-        crossbowMultipliers[0] = static_cast<float>(ini.GetDoubleValue("Crossbow", "fNoviceMultiplier", 0.5));
-        crossbowMultipliers[1] = static_cast<float>(ini.GetDoubleValue("Crossbow", "fApprenticeMultiplier", 0.6));
-        crossbowMultipliers[2] = static_cast<float>(ini.GetDoubleValue("Crossbow", "fExpertMultiplier", 0.7));
-        crossbowMultipliers[3] = static_cast<float>(ini.GetDoubleValue("Crossbow", "fMasterMultiplier", 0.8));
+        // ===== CASTING DEBUFF =====
+        applyToNPCs = ini.GetBoolValue("CastingDebuff", "bApplyToNPCs", true);
 
-        // Cast multipliers
-        castMultipliers[0] = static_cast<float>(ini.GetDoubleValue("Cast", "fNoviceMultiplier", 0.5));
-        castMultipliers[1] = static_cast<float>(ini.GetDoubleValue("Cast", "fApprenticeMultiplier", 0.6));
-        castMultipliers[2] = static_cast<float>(ini.GetDoubleValue("Cast", "fExpertMultiplier", 0.7));
-        castMultipliers[3] = static_cast<float>(ini.GetDoubleValue("Cast", "fMasterMultiplier", 0.8));
+        // Bow
+        enableBowDebuff = ini.GetBoolValue("CastingDebuff.Bow", "bEnableBowDebuff", true);
+        bowMultipliers[0] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Bow", "fNoviceMultiplier", 0.5));
+        bowMultipliers[1] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Bow", "fApprenticeMultiplier", 0.6));
+        bowMultipliers[2] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Bow", "fExpertMultiplier", 0.7));
+        bowMultipliers[3] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Bow", "fMasterMultiplier", 0.8));
 
-        // Dual cast multipliers
-        dualCastMultipliers[0] = static_cast<float>(ini.GetDoubleValue("DualCast", "fNoviceMultiplier", 0.4));
-        dualCastMultipliers[1] = static_cast<float>(ini.GetDoubleValue("DualCast", "fApprenticeMultiplier", 0.5));
-        dualCastMultipliers[2] = static_cast<float>(ini.GetDoubleValue("DualCast", "fExpertMultiplier", 0.6));
-        dualCastMultipliers[3] = static_cast<float>(ini.GetDoubleValue("DualCast", "fMasterMultiplier", 0.7));
+        // Crossbow
+        enableCrossbowDebuff = ini.GetBoolValue("CastingDebuff.Crossbow", "bEnableCrossbowDebuff", true);
+        crossbowMultipliers[0] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Crossbow", "fNoviceMultiplier", 0.5));
+        crossbowMultipliers[1] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Crossbow", "fApprenticeMultiplier", 0.6));
+        crossbowMultipliers[2] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Crossbow", "fExpertMultiplier", 0.7));
+        crossbowMultipliers[3] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Crossbow", "fMasterMultiplier", 0.8));
+
+        // Cast
+        enableCastDebuff = ini.GetBoolValue("CastingDebuff.Cast", "bEnableCastDebuff", true);
+        castMultipliers[0] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Cast", "fNoviceMultiplier", 0.5));
+        castMultipliers[1] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Cast", "fApprenticeMultiplier", 0.6));
+        castMultipliers[2] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Cast", "fExpertMultiplier", 0.7));
+        castMultipliers[3] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.Cast", "fMasterMultiplier", 0.8));
+
+        // Dual Cast
+        enableDualCastDebuff = ini.GetBoolValue("CastingDebuff.DualCast", "bEnableDualCastDebuff", true);
+        dualCastMultipliers[0] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.DualCast", "fNoviceMultiplier", 0.4));
+        dualCastMultipliers[1] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.DualCast", "fApprenticeMultiplier", 0.5));
+        dualCastMultipliers[2] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.DualCast", "fExpertMultiplier", 0.6));
+        dualCastMultipliers[3] = static_cast<float>(ini.GetDoubleValue("CastingDebuff.DualCast", "fMasterMultiplier", 0.7));
+
+        // ===== DEBUG =====
+        logLevel = ini.GetLongValue("Debug", "iLogLevel", 1);
 
         logger::info("Config loaded successfully from {}", path.string());
     }
@@ -61,45 +80,128 @@ namespace TheLastBreath {
         CSimpleIniA ini;
         ini.SetUnicode();
 
-        // General section
-        ini.SetValue("General", nullptr, "; SIGA - Slow Motion Combat Plugin");
-        ini.SetBoolValue("General", "bEnabled", enabled);
-        ini.SetValue("General", nullptr, "; Apply slowdown to NPCs in combat");
-        ini.SetBoolValue("General", "bApplyToNPCs", applyToNPCs);
+        // ===== GENERAL =====
+        ini.SetValue("General", nullptr, nullptr);
+        ini.SetValue("General", nullptr, "; ============================================");
+        ini.SetValue("General", nullptr, "; The Last Breath - Combat Overhaul");
+        ini.SetValue("General", nullptr, "; ============================================");
+        ini.SetValue("General", nullptr, nullptr);
 
-        ini.SetValue("General", nullptr, "; Enable/Disable specific slowdown types");
-        ini.SetBoolValue("General", "bEnableBowDebuff", enableBowDebuff);
-        ini.SetBoolValue("General", "bEnableCrossbowDebuff", enableCrossbowDebuff);
-        ini.SetBoolValue("General", "bEnableCastDebuff", enableCastDebuff);
-        ini.SetBoolValue("General", "bEnableDualCastDebuff", enableDualCastDebuff);
+        // ===== STAMINA =====
+        ini.SetValue("Stamina", nullptr, nullptr);
+        ini.SetValue("Stamina", nullptr, "; ============================================");
+        ini.SetValue("Stamina", nullptr, "; STAMINA MANAGEMENT SYSTEM");
+        ini.SetValue("Stamina", nullptr, "; ============================================");
+        ini.SetValue("Stamina", nullptr, nullptr);
 
-        // Bow section
-        ini.SetValue("Bow", nullptr, "; Bow slowdown multipliers by skill level");
-        ini.SetDoubleValue("Bow", "fNoviceMultiplier", bowMultipliers[0]);
-        ini.SetDoubleValue("Bow", "fApprenticeMultiplier", bowMultipliers[1]);
-        ini.SetDoubleValue("Bow", "fExpertMultiplier", bowMultipliers[2]);
-        ini.SetDoubleValue("Bow", "fMasterMultiplier", bowMultipliers[3]);
+        ini.SetValue("Stamina", nullptr, "; Enable/disable all stamina management features");
+        ini.SetBoolValue("Stamina", "bEnableStaminaManagement", enableStaminaManagement);
 
-        // Crossbow section
-        ini.SetValue("Crossbow", nullptr, "; Crossbow slowdown multipliers by skill level");
-        ini.SetDoubleValue("Crossbow", "fNoviceMultiplier", crossbowMultipliers[0]);
-        ini.SetDoubleValue("Crossbow", "fApprenticeMultiplier", crossbowMultipliers[1]);
-        ini.SetDoubleValue("Crossbow", "fExpertMultiplier", crossbowMultipliers[2]);
-        ini.SetDoubleValue("Crossbow", "fMasterMultiplier", crossbowMultipliers[3]);
+        ini.SetValue("Stamina", nullptr, nullptr);
+        ini.SetValue("Stamina", nullptr, "; --- Jump Stamina Cost ---");
+        ini.SetValue("Stamina", nullptr, "; Enable stamina cost when jumping");
+        ini.SetBoolValue("Stamina", "bEnableJumpStaminaCost", enableJumpStaminaCost);
+        ini.SetValue("Stamina", nullptr, "; Flat stamina cost per jump");
+        ini.SetDoubleValue("Stamina", "fJumpStaminaCost", jumpStaminaCost);
 
-        // Cast section
-        ini.SetValue("Cast", nullptr, "; Magic casting slowdown multipliers by skill level");
-        ini.SetDoubleValue("Cast", "fNoviceMultiplier", castMultipliers[0]);
-        ini.SetDoubleValue("Cast", "fApprenticeMultiplier", castMultipliers[1]);
-        ini.SetDoubleValue("Cast", "fExpertMultiplier", castMultipliers[2]);
-        ini.SetDoubleValue("Cast", "fMasterMultiplier", castMultipliers[3]);
+        ini.SetValue("Stamina", nullptr, nullptr);                                                      // new
+        ini.SetValue("Stamina", nullptr, "; --- Block Stamina Drain ---");                             // new
+        ini.SetValue("Stamina", nullptr, "; Enable continuous stamina drain while blocking");          // new
+        ini.SetBoolValue("Stamina", "bEnableBlockStaminaDrain", enableBlockStaminaDrain);              // new
+        ini.SetValue("Stamina", nullptr, "; Stamina drain per second while blocking");                 // new
+        ini.SetDoubleValue("Stamina", "fBlockHoldStaminaCostPerSecond", blockHoldStaminaCostPerSecond); // new
 
-        // Dual cast section
-        ini.SetValue("DualCast", nullptr, "; Dual casting slowdown multipliers by skill level");
-        ini.SetDoubleValue("DualCast", "fNoviceMultiplier", dualCastMultipliers[0]);
-        ini.SetDoubleValue("DualCast", "fApprenticeMultiplier", dualCastMultipliers[1]);
-        ini.SetDoubleValue("DualCast", "fExpertMultiplier", dualCastMultipliers[2]);
-        ini.SetDoubleValue("DualCast", "fMasterMultiplier", dualCastMultipliers[3]);
+        ini.SetValue("Stamina", nullptr, nullptr);
+        ini.SetValue("Stamina", nullptr, "; --- Light Attack Stamina Cost ---");
+        ini.SetValue("Stamina", nullptr, "; Enable light attack stamina cost system");
+        ini.SetBoolValue("Stamina", "bEnableLightAttackStamina", enableLightAttackStamina);
+        ini.SetValue("Stamina", nullptr, "; Light attack stamina cost as % of power attack");
+        ini.SetValue("Stamina", nullptr, "; 0.3 = 30% of power attack cost, 1.0 = same as power attack");
+        ini.SetDoubleValue("Stamina", "fLightAttackStaminaCost", lightAttackStaminaCostMult);
+
+        ini.SetValue("Stamina", nullptr, nullptr);
+        ini.SetValue("Stamina", nullptr, "; --- Ranged Weapons (Bow & Crossbow) ---");
+        ini.SetValue("Stamina", nullptr, "; Master toggle for ranged stamina costs");
+        ini.SetBoolValue("Stamina", "bEnableRangedStaminaCost", enableRangedStaminaCost);
+
+        ini.SetValue("Stamina", nullptr, nullptr);
+        ini.SetValue("Stamina", nullptr, "; Enable continuous stamina drain while holding bow/crossbow drawn");
+        ini.SetBoolValue("Stamina", "bEnableRangedHoldStaminaDrain", enableRangedHoldStaminaDrain);
+        ini.SetValue("Stamina", nullptr, "; Stamina drain per second while aiming");
+        ini.SetDoubleValue("Stamina", "fRangedHoldStaminaCostPerSecond", rangedHoldStaminaCostPerSecond);
+
+        ini.SetValue("Stamina", nullptr, nullptr);
+        ini.SetValue("Stamina", nullptr, "; Enable stamina cost when firing arrow");
+        ini.SetBoolValue("Stamina", "bEnableRangedReleaseStaminaCost", enableRangedReleaseStaminaCost);
+        ini.SetValue("Stamina", nullptr, "; Stamina cost when firing");
+        ini.SetDoubleValue("Stamina", "fRangedReleaseStaminaCost", rangedReleaseStaminaCost);
+
+        ini.SetValue("Stamina", nullptr, nullptr);                                                      // new
+        ini.SetValue("Stamina", nullptr, "; --- Rapid Combo (Bow Rapid Combo V3 Mod) ---");            // new
+        ini.SetValue("Stamina", nullptr, "; Enable stamina cost for rapid combo arrows");              // new
+        ini.SetBoolValue("Stamina", "bEnableRapidComboStaminaCost", enableRapidComboStaminaCost);      // new
+        ini.SetValue("Stamina", nullptr, "; Stamina cost per rapid combo arrow");                      // new
+        ini.SetDoubleValue("Stamina", "fRapidComboStaminaCost", rapidComboStaminaCost);
+
+        // ===== CASTING DEBUFF =====
+        ini.SetValue("CastingDebuff", nullptr, nullptr);
+        ini.SetValue("CastingDebuff", nullptr, "; ============================================");
+        ini.SetValue("CastingDebuff", nullptr, "; CASTING DEBUFF SYSTEM");
+        ini.SetValue("CastingDebuff", nullptr, "; ============================================");
+        ini.SetValue("CastingDebuff", nullptr, nullptr);
+
+        ini.SetValue("CastingDebuff", nullptr, "; Apply slowdown to NPCs in combat");
+        ini.SetBoolValue("CastingDebuff", "bApplyToNPCs", applyToNPCs);
+
+        // Bow
+        ini.SetValue("CastingDebuff.Bow", nullptr, nullptr);
+        ini.SetValue("CastingDebuff.Bow", nullptr, "; --- Bow Slowdown ---");
+        ini.SetValue("CastingDebuff.Bow", nullptr, "; Skill ranges: Novice (0-25), Apprentice (26-50), Expert (51-75), Master (76-100)");
+        ini.SetBoolValue("CastingDebuff.Bow", "bEnableBowDebuff", enableBowDebuff);
+        ini.SetDoubleValue("CastingDebuff.Bow", "fNoviceMultiplier", bowMultipliers[0]);
+        ini.SetDoubleValue("CastingDebuff.Bow", "fApprenticeMultiplier", bowMultipliers[1]);
+        ini.SetDoubleValue("CastingDebuff.Bow", "fExpertMultiplier", bowMultipliers[2]);
+        ini.SetDoubleValue("CastingDebuff.Bow", "fMasterMultiplier", bowMultipliers[3]);
+
+        // Crossbow
+        ini.SetValue("CastingDebuff.Crossbow", nullptr, nullptr);
+        ini.SetValue("CastingDebuff.Crossbow", nullptr, "; --- Crossbow Slowdown ---");
+        ini.SetValue("CastingDebuff.Crossbow", nullptr, "; Skill ranges: Novice (0-25), Apprentice (26-50), Expert (51-75), Master (76-100)");
+        ini.SetBoolValue("CastingDebuff.Crossbow", "bEnableCrossbowDebuff", enableCrossbowDebuff);
+        ini.SetDoubleValue("CastingDebuff.Crossbow", "fNoviceMultiplier", crossbowMultipliers[0]);
+        ini.SetDoubleValue("CastingDebuff.Crossbow", "fApprenticeMultiplier", crossbowMultipliers[1]);
+        ini.SetDoubleValue("CastingDebuff.Crossbow", "fExpertMultiplier", crossbowMultipliers[2]);
+        ini.SetDoubleValue("CastingDebuff.Crossbow", "fMasterMultiplier", crossbowMultipliers[3]);
+
+        // Cast
+        ini.SetValue("CastingDebuff.Cast", nullptr, nullptr);
+        ini.SetValue("CastingDebuff.Cast", nullptr, "; --- Magic Casting Slowdown ---");
+        ini.SetValue("CastingDebuff.Cast", nullptr, "; Skill ranges based on spell school level");
+        ini.SetBoolValue("CastingDebuff.Cast", "bEnableCastDebuff", enableCastDebuff);
+        ini.SetDoubleValue("CastingDebuff.Cast", "fNoviceMultiplier", castMultipliers[0]);
+        ini.SetDoubleValue("CastingDebuff.Cast", "fApprenticeMultiplier", castMultipliers[1]);
+        ini.SetDoubleValue("CastingDebuff.Cast", "fExpertMultiplier", castMultipliers[2]);
+        ini.SetDoubleValue("CastingDebuff.Cast", "fMasterMultiplier", castMultipliers[3]);
+
+        // Dual Cast
+        ini.SetValue("CastingDebuff.DualCast", nullptr, nullptr);
+        ini.SetValue("CastingDebuff.DualCast", nullptr, "; --- Dual Casting Slowdown ---");
+        ini.SetValue("CastingDebuff.DualCast", nullptr, "; Applied when casting with both hands simultaneously");
+        ini.SetBoolValue("CastingDebuff.DualCast", "bEnableDualCastDebuff", enableDualCastDebuff);
+        ini.SetDoubleValue("CastingDebuff.DualCast", "fNoviceMultiplier", dualCastMultipliers[0]);
+        ini.SetDoubleValue("CastingDebuff.DualCast", "fApprenticeMultiplier", dualCastMultipliers[1]);
+        ini.SetDoubleValue("CastingDebuff.DualCast", "fExpertMultiplier", dualCastMultipliers[2]);
+        ini.SetDoubleValue("CastingDebuff.DualCast", "fMasterMultiplier", dualCastMultipliers[3]);
+
+        // ===== DEBUG =====
+        ini.SetValue("Debug", nullptr, nullptr);
+        ini.SetValue("Debug", nullptr, "; ============================================");
+        ini.SetValue("Debug", nullptr, "; DEBUG SETTINGS");
+        ini.SetValue("Debug", nullptr, "; ============================================");
+        ini.SetValue("Debug", nullptr, nullptr);
+
+        ini.SetValue("Debug", nullptr, "; Log Level: 0=trace, 1=debug, 2=info, 3=warn, 4=error, 5=critical");
+        ini.SetLongValue("Debug", "iLogLevel", logLevel);
 
         auto path = GetConfigPath();
         std::filesystem::create_directories(path.parent_path());

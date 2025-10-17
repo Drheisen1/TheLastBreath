@@ -23,6 +23,7 @@ add_library(
     src/CombatEventHandler.cpp
     src/SlowMotion.cpp
     src/Hooks.cpp
+    src/RangedStaminaHandler.cpp
     src/Config.cpp
 )
 

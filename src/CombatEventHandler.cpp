@@ -1,5 +1,7 @@
 #include "TheLastBreath/CombatEventHandler.h"
 #include "TheLastBreath/AnimationHandler.h"
+#include "TheLastBreath/SlowMotion.h"
+#include "TheLastBreath/RangedStaminaHandler.h"
 #include "TheLastBreath/Config.h"
 
 namespace TheLastBreath {
@@ -47,6 +49,23 @@ namespace TheLastBreath {
             }
             else {
                 logger::debug("Failed to register for NPC: {}", actor->GetName());
+            }
+        }
+
+        else if (a_event->newState.underlying() == 0) {
+            // Exiting combat cleanup
+            std::lock_guard<std::mutex> lock(registrationMutex);
+
+            auto formID = actor->GetFormID();
+
+            // Remove from registered NPCs
+            if (registeredNPCs.erase(formID)) {
+                logger::debug("Unregistered NPC leaving combat: {} (FormID: {:X})",
+                    actor->GetName(), formID);
+
+                // Clear any active effects
+                SlowMotionManager::GetSingleton()->ClearAllSlowdowns(actor);
+                RangedStaminaHandler::GetSingleton()->ClearActor(actor);
             }
         }
 

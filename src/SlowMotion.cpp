@@ -165,4 +165,27 @@ namespace TheLastBreath {
         return mult;
     }
 
-} 
+
+    bool SlowMotionManager::IsActorSlowedByType(RE::Actor* actor, SlowType type) {
+        if (!actor) return false;
+
+        auto it = actorStates.find(actor->GetFormID());
+        if (it == actorStates.end()) return false;
+
+        auto& state = it->second;
+        switch (type) {
+        case SlowType::Bow:
+        case SlowType::Crossbow:
+            return state.bowSlowActive;
+        case SlowType::CastLeft:
+            return state.castLeftActive;
+        case SlowType::CastRight:
+            return state.castRightActive;
+        case SlowType::DualCast:
+            return state.dualCastActive;
+        default:
+            return false;
+        }
+    }
+
+}
