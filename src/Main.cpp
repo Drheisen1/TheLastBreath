@@ -5,6 +5,9 @@
 #include "TheLastBreath/Config.h"
 #include "TheLastBreath/Hooks.h"
 #include "TheLastBreath/RangedStaminaHandler.h"
+#include "TheLastBreath/ExhaustionHandler.h"
+#include "TheLastBreath/HitEventHandler.h"
+#include "TheLastBreath/CombatHandler.h"
 #include <atomic>
 #include <thread>
 
@@ -51,6 +54,8 @@ namespace {
             while (g_rangedWorkerRunning.load(std::memory_order_relaxed)) {
                 SKSE::GetTaskInterface()->AddTask([]() {
                     TheLastBreath::RangedStaminaHandler::GetSingleton()->Update();
+                    TheLastBreath::ExhaustionHandler::GetSingleton()->Update();
+                    TheLastBreath::CombatHandler::GetSingleton()->Update();
                     });
                 std::this_thread::sleep_for(100ms);
             }
@@ -152,6 +157,9 @@ namespace {
             if (auto scriptEventSource = RE::ScriptEventSourceHolder::GetSingleton()) {
                 scriptEventSource->AddEventSink(TheLastBreath::CombatEventHandler::GetSingleton());
                 logger::debug("Combat event handler registered for NPC tracking");
+
+                scriptEventSource->AddEventSink(TheLastBreath::HitEventHandler::GetSingleton());
+                logger::debug("Hit event handler registered");
             }
             else {
                 logger::error("Failed to get script event source");
@@ -179,6 +187,7 @@ namespace {
             StartRangedStaminaWorker();
 
             TheLastBreath::SlowMotionManager::GetSingleton()->ClearAll();
+            TheLastBreath::ExhaustionHandler::GetSingleton()->ClearAll();
             logger::debug("Ready - animation events will register on first player input");
 
             break;

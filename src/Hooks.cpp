@@ -36,7 +36,7 @@ namespace TheLastBreath {
         static float GetAttackStaminaCost(RE::ActorValueOwner* avOwner, RE::BGSAttackData* attackData) {
             auto config = TheLastBreath::Config::GetSingleton();
 
-            if (!config->enableStaminaManagement || !config->enableLightAttackStamina) { 
+            if (!config->enableStaminaManagement || !config->enableLightAttackStamina) {
                 return _GetAttackStaminaCost(avOwner, attackData);
             }
 
@@ -95,5 +95,5 @@ namespace TheLastBreath {
             logger::info("Attack stamina cost hook installed");
         }
 
-    } 
+    }
 }

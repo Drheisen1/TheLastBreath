@@ -20,6 +20,10 @@ namespace TheLastBreath {
         bool enableBlockStaminaDrain = true;                    // new
         float blockHoldStaminaCostPerSecond = 2.0f;            // new
 
+        // Stamina Loss on Hit
+        bool enableStaminaLossOnHit = true;
+        float staminaLossOnHitBase = 15.0f;  // Base stamina loss at skill level 0
+
         // Melee Weapons
         bool enableLightAttackStamina = true;  // new
         float lightAttackStaminaCostMult = 0.3f; 
@@ -32,6 +36,13 @@ namespace TheLastBreath {
         float rangedReleaseStaminaCost = 10.0f;
         bool enableRapidComboStaminaCost = false;      // new
 		float rapidComboStaminaCost = 10.0f;           // new
+
+        // Exhaustion System
+        bool enableExhaustionDebuff = true;  // new
+        float exhaustionStaminaThreshold = 20.0f; // new
+        float exhaustionMovementSpeedDebuff = 0.20f;   // new    // 20% slower
+        float exhaustionAttackDamageDebuff = 0.25f;   // new     // 25% less damage
+        float exhaustionDamageReceivedMult = 1.25f;   // new     // 25% more damage taken
 
         // ===== CASTING DEBUFF =====
         bool applyToNPCs = true;

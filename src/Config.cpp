@@ -26,6 +26,10 @@ namespace TheLastBreath {
         enableBlockStaminaDrain = ini.GetBoolValue("Stamina", "bEnableBlockStaminaDrain", true);                              // new
         blockHoldStaminaCostPerSecond = static_cast<float>(ini.GetDoubleValue("Stamina", "fBlockHoldStaminaCostPerSecond", 2.0));  // new
 
+        // Stamina Loss on Hit
+        enableStaminaLossOnHit = ini.GetBoolValue("Combat", "bEnableStaminaLossOnHit", true);
+        staminaLossOnHitBase = static_cast<float>(ini.GetDoubleValue("Combat", "fStaminaLossOnHitBase", 15.0));
+
         // Melee Weapons
         enableLightAttackStamina = ini.GetBoolValue("Stamina", "bEnableLightAttackStamina", true);
         lightAttackStaminaCostMult = static_cast<float>(ini.GetDoubleValue("Stamina", "fLightAttackStaminaCost", 0.3));
@@ -38,6 +42,14 @@ namespace TheLastBreath {
         rangedReleaseStaminaCost = static_cast<float>(ini.GetDoubleValue("Stamina", "fRangedReleaseStaminaCost", 10.0));
         enableRapidComboStaminaCost = ini.GetBoolValue("Stamina", "bEnableRapidComboStaminaCost", false);              // new
         rapidComboStaminaCost = static_cast<float>(ini.GetDoubleValue("Stamina", "fRapidComboStaminaCost", 10.0));   // new
+
+        // Exhaustion System
+        enableExhaustionDebuff = ini.GetBoolValue("Exhaustion", "bEnableExhaustionDebuff", true); // new
+        exhaustionStaminaThreshold = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionStaminaThreshold", 20.0)); // new
+        exhaustionMovementSpeedDebuff = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionMovementSpeedDebuff", 0.20)); // new
+        exhaustionAttackDamageDebuff = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionAttackDamageDebuff", 0.25)); // new
+        exhaustionDamageReceivedMult = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionDamageReceivedMult", 1.25)); // new
+
 
         // ===== CASTING DEBUFF =====
         applyToNPCs = ini.GetBoolValue("CastingDebuff", "bApplyToNPCs", true);
@@ -142,6 +154,43 @@ namespace TheLastBreath {
         ini.SetBoolValue("Stamina", "bEnableRapidComboStaminaCost", enableRapidComboStaminaCost);      // new
         ini.SetValue("Stamina", nullptr, "; Stamina cost per rapid combo arrow");                      // new
         ini.SetDoubleValue("Stamina", "fRapidComboStaminaCost", rapidComboStaminaCost);
+
+        // ===== COMBAT SYSTEM =====
+
+        ini.SetValue("Stamina", nullptr, nullptr);
+        ini.SetValue("Combat", nullptr, "; Stamina Loss on Taking Damage");
+        ini.SetValue("Combat", nullptr, "; Enable stamina loss when hit by enemies");
+        ini.SetBoolValue("Combat", "bEnableStaminaLossOnHit", enableStaminaLossOnHit);
+
+        ini.SetValue("Combat", nullptr, nullptr);
+        ini.SetValue("Combat", nullptr, "; Base stamina loss when hit (scales with armor skill)");
+        ini.SetValue("Combat", nullptr, "; Formula: Loss = Base * (100 - ArmorSkill) / 100");
+        ini.SetValue("Combat", nullptr, "; At skill 0: Lose 100% of base | At skill 50: Lose 50% | At skill 100: Lose 0%");
+        ini.SetDoubleValue("Combat", "fStaminaLossOnHitBase", staminaLossOnHitBase);
+
+        // ===== EXHAUSTION SYSTEM =====  // new
+        ini.SetValue("Exhaustion", nullptr, nullptr);
+        ini.SetValue("Exhaustion", nullptr, "; ============================================");
+        ini.SetValue("Exhaustion", nullptr, "; EXHAUSTION DEBUFF SYSTEM");
+        ini.SetValue("Exhaustion", nullptr, "; ============================================");
+        ini.SetValue("Exhaustion", nullptr, nullptr);
+
+        ini.SetValue("Exhaustion", nullptr, "; Enable exhaustion debuffs when stamina is low");
+        ini.SetBoolValue("Exhaustion", "bEnableExhaustionDebuff", enableExhaustionDebuff);
+
+        ini.SetValue("Exhaustion", nullptr, nullptr);
+        ini.SetValue("Exhaustion", nullptr, "; Stamina threshold - debuffs apply when current stamina < this value");
+        ini.SetDoubleValue("Exhaustion", "fExhaustionStaminaThreshold", exhaustionStaminaThreshold);
+
+        ini.SetValue("Exhaustion", nullptr, nullptr);
+        ini.SetValue("Exhaustion", nullptr, "; Movement speed debuff (0.20 = 20% slower)");
+        ini.SetDoubleValue("Exhaustion", "fExhaustionMovementSpeedDebuff", exhaustionMovementSpeedDebuff);
+
+        ini.SetValue("Exhaustion", nullptr, "; Attack damage debuff (0.25 = 25% less damage dealt)");
+        ini.SetDoubleValue("Exhaustion", "fExhaustionAttackDamageDebuff", exhaustionAttackDamageDebuff);
+
+        ini.SetValue("Exhaustion", nullptr, "; Damage received multiplier (1.25 = 25% more damage taken)");
+        ini.SetDoubleValue("Exhaustion", "fExhaustionDamageReceivedMult", exhaustionDamageReceivedMult);
 
         // ===== CASTING DEBUFF =====
         ini.SetValue("CastingDebuff", nullptr, nullptr);

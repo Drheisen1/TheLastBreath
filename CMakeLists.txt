@@ -20,10 +20,13 @@ add_library(
     SHARED
     src/Main.cpp
     src/AnimationHandler.cpp
+    src/CombatHandler.cpp
     src/CombatEventHandler.cpp
     src/SlowMotion.cpp
     src/Hooks.cpp
     src/RangedStaminaHandler.cpp
+    src/ExhaustionHandler.cpp
+    src/HitEventHandler.cpp
     src/Config.cpp
 )
 

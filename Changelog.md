@@ -19,6 +19,7 @@ c) Jumping:
 d) Bow Usage:
 - drawing a bow now drains stamina over time.
 - The drain rate can be tweaked, Default is set to 3 Points per second.
+- bow drawing is cancelled at 0 stamina.
 - Can be turned off entirely.
 
 - Releasing the bow costs 10 flat stamina points.
@@ -29,9 +30,18 @@ d) Bow Usage:
 e) Blocking:
 - Blocking now drains stamina over time.
 - The drain rate can be tweaked, Default is set to 5 Points per second.
+- Blocking is cancelled at 0 stamina.
 - Can be turned off entirely.
 
+f) Exhaustion Debuff:
+- When stamina reaches zero, players will receive an exhaustion debuff.
+- Attack damage is lowered by 25%. this can be tweaked.
+- movement speed is lowered by 20%. this can be tweaked.
+- damage recieved is increased by 15%. this can be tweaked.
+- Can be turned off entirely.
 
+g) Stamina Loss on hit:
+- gradual, stamina loss is equal to (100-n)%*15, where n = armor skill level. 15 is configurable, can be turned off entirely
 
 2) Casting Slow Debuff:
 - any sort of casting (spells, staves, etc.) will apply a slow debuff to the caster.
