@@ -1,6 +1,7 @@
 #include "TheLastBreath/AnimationHandler.h"
 #include "TheLastBreath/SlowMotion.h"
 #include "TheLastBreath/RangedStaminaHandler.h"
+#include "TheLastBreath/TimedBlockHandler.h"
 #include "TheLastBreath/Config.h"
 
 
@@ -170,16 +171,6 @@ namespace TheLastBreath {
                 } 
             } 
         }
-
-        // BLOCK STAMINA DRAIN  
-        else if (eventName == "blockStartOut") {  
-            logger::debug("Block started");   
-            rangedHandler->OnBlockStart(actor);  
-        }            
-        else if (eventName == "blockStop") { 
-            logger::debug("Block stopped");  
-            rangedHandler->OnBlockStop(actor);  
-        }  
 
         return RE::BSEventNotifyControl::kContinue;
     }

@@ -1,5 +1,6 @@
 #include "TheLastBreath/HitEventHandler.h"
 #include "TheLastBreath/CombatHandler.h"
+#include "TheLastBreath/TimedBlockHandler.h"
 #include "TheLastBreath/Config.h"
 
 namespace TheLastBreath {
@@ -58,12 +59,25 @@ namespace TheLastBreath {
 
         bool wasBlocked = a_event->flags.all(RE::TESHitEvent::Flag::kHitBlocked);
 
-        logger::debug("Player hit by {} (blocked: {}, weapon hit)",
-            aggressorActor->GetName(),
-            wasBlocked);
+        // Determine block type
+        BlockType blockType = BlockType::None;
+        if (wasBlocked) {
+            auto timedBlockHandler = TheLastBreath::TimedBlockHandler::GetSingleton();
+            blockType = timedBlockHandler->CheckBlockType(victimActor);
 
-        // Call combat handler for gradual stamina drain
-        CombatHandler::GetSingleton()->OnActorHit(victimActor, aggressorActor, 0.0f);
+            // Consume the window if it was a timed block
+            if (blockType == BlockType::Timed) {
+                timedBlockHandler->ConsumeTimedBlock(victimActor);
+            }
+        }
+
+        logger::debug("Player hit by {} (block type: {})",
+            aggressorActor->GetName(),
+            blockType == BlockType::Timed ? "TIMED" :
+            blockType == BlockType::Regular ? "REGULAR" : "NONE");
+
+        // Call combat handler with block type info
+        CombatHandler::GetSingleton()->OnActorHit(victimActor, aggressorActor, 0.0f, blockType);
 
         return RE::BSEventNotifyControl::kContinue;
     }

@@ -1,4 +1,8 @@
 #pragma once
+#include "TheLastBreath/TimedBlockHandler.h"
+#include "TheLastBreath/BlockEffectsHandler.h"
+#include <unordered_set>
+#include <unordered_map>
 #include <chrono>
 
 namespace TheLastBreath {
@@ -10,26 +14,32 @@ namespace TheLastBreath {
             return &singleton;
         }
 
-        void OnActorHit(RE::Actor* victim, RE::Actor* aggressor, float damage);
-        void Update();  // ADD THIS - called from worker thread
+        void OnActorHit(RE::Actor* victim, RE::Actor* aggressor, float damage, BlockType blockType);
+        void ApplyTimedBlockDamageResistance(RE::Actor* victim);
+
+        // Block stamina drain
+        void OnBlockStart(RE::Actor* actor);
+        void OnBlockStop(RE::Actor* actor);
+        void Update();
 
     private:
         CombatHandler() = default;
         CombatHandler(const CombatHandler&) = delete;
         CombatHandler(CombatHandler&&) = delete;
 
-        float GetArmorSkill(RE::Actor* actor);
-
-        // gradual
-        struct StaminaDrain {
-            float totalAmount;
-            float remaining;
-            std::chrono::steady_clock::time_point startTime;
-            std::chrono::steady_clock::time_point lastDrainTime;
-            float duration;  // in seconds
+        struct DamageResistanceState {
+            float resistAmount = 0.0f;
+            std::chrono::steady_clock::time_point applyTime;
         };
 
-        std::unordered_map<RE::FormID, StaminaDrain> activeDrains;  // ADD THIS
+        struct BlockState {
+            bool isBlocking = false;
+            std::chrono::steady_clock::time_point blockStartTime;
+            std::chrono::steady_clock::time_point lastBlockDrainTime;
+        };
+
+        std::unordered_map<RE::FormID, DamageResistanceState> actorsWithDamageResistance;
+        std::unordered_map<RE::FormID, BlockState> actorBlockStates;
     };
 
 }

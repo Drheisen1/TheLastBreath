@@ -22,7 +22,11 @@ namespace TheLastBreath {
 
         // Stamina Loss on Hit
         bool enableStaminaLossOnHit = true;
-        float staminaLossOnHitBase = 15.0f;  // Base stamina loss at skill level 0
+        float staminaLossBaseIntercept = 14.5f;      // Base at 0 max stamina
+        float staminaLossScalingFactor = 0.018f;     // How much to subtract per max stamina point
+        float staminaLossFlatAddition = 1.0f;        // Flat amount always added
+        bool enableRegularBlockStaminaLossOnHit = true;
+        float regularBlockStaminaMult = 0.5f;
 
         // Melee Weapons
         bool enableLightAttackStamina = true;  // new
@@ -43,6 +47,17 @@ namespace TheLastBreath {
         float exhaustionMovementSpeedDebuff = 0.20f;   // new    // 20% slower
         float exhaustionAttackDamageDebuff = 0.25f;   // new     // 25% less damage
         float exhaustionDamageReceivedMult = 1.25f;   // new     // 25% more damage taken
+
+        // Timed Blocking System
+        bool enableTimedBlocking = true;
+        float timedBlockWindow = 0.2f;
+        float timedBlockAnimationDelay = 0.25f;
+        uint32_t blockButton = 257;
+        bool timedBlockStaminaLoss = false;              // NEW - Enable stamina loss on timed block
+        bool timedBlockStaminaGain = true;               // NEW - Enable stamina gain on timed block
+        float timedBlockStaminaAmountGain = 20.0f;           // NEW - Flat stamina gain
+        float timedBlockStaminaAmountLossMult = 0.5f;        // NEW - Multiplier of regular block loss
+        float timedBlockDamageReduction = 1.0f;
 
         // ===== CASTING DEBUFF =====
         bool applyToNPCs = true;
@@ -66,6 +81,16 @@ namespace TheLastBreath {
         // ===== DEBUG =====
         int logLevel = 1;  // 0=trace, 1=debug, 2=info, 3=warn, 4=error, 5=critical
 
+        // Block Sound Effects (loaded from plugin)
+        RE::FormID parryWeaponSound1 = 0;
+        RE::FormID parryWeaponSound2 = 0;
+        RE::FormID parryWeaponSound3 = 0;
+        RE::FormID parryWeaponSound4 = 0;
+        RE::FormID parryShieldSound1 = 0;
+        RE::FormID parryShieldSound2 = 0;
+        RE::FormID parryShieldSound3 = 0;
+        RE::FormID parryShieldSound4 = 0;
+
     private:
         Config() = default;
         Config(const Config&) = delete;
@@ -73,4 +98,5 @@ namespace TheLastBreath {
 
         static std::filesystem::path GetConfigPath();
     };
+
 }

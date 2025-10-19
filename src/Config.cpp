@@ -1,5 +1,6 @@
 #include "TheLastBreath/Config.h"
 #include <SimpleIni.h>
+#include <fstream>
 
 namespace TheLastBreath {
     std::filesystem::path Config::GetConfigPath() {
@@ -28,7 +29,12 @@ namespace TheLastBreath {
 
         // Stamina Loss on Hit
         enableStaminaLossOnHit = ini.GetBoolValue("Combat", "bEnableStaminaLossOnHit", true);
-        staminaLossOnHitBase = static_cast<float>(ini.GetDoubleValue("Combat", "fStaminaLossOnHitBase", 15.0));
+        staminaLossBaseIntercept = static_cast<float>(ini.GetDoubleValue("Combat", "fStaminaLossBaseIntercept", 14.5));
+        staminaLossScalingFactor = static_cast<float>(ini.GetDoubleValue("Combat", "fStaminaLossScalingFactor", 0.018));
+        staminaLossFlatAddition = static_cast<float>(ini.GetDoubleValue("Combat", "fStaminaLossFlatAddition", 1.0));
+        enableRegularBlockStaminaLossOnHit = ini.GetBoolValue("Combat", "bEnableRegularBlockStaminaLossOnHit", true);
+        regularBlockStaminaMult = static_cast<float>(ini.GetDoubleValue("Combat", "fRegularBlockStaminaMult", 0.5));
+
 
         // Melee Weapons
         enableLightAttackStamina = ini.GetBoolValue("Stamina", "bEnableLightAttackStamina", true);
@@ -49,6 +55,17 @@ namespace TheLastBreath {
         exhaustionMovementSpeedDebuff = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionMovementSpeedDebuff", 0.20)); // new
         exhaustionAttackDamageDebuff = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionAttackDamageDebuff", 0.25)); // new
         exhaustionDamageReceivedMult = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionDamageReceivedMult", 1.25)); // new
+
+        // Timed Blocking
+        enableTimedBlocking = ini.GetBoolValue("TimedBlocking", "bEnableTimedBlocking", true);
+        timedBlockWindow = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockWindow", 0.3));
+        timedBlockAnimationDelay = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockAnimationDelay", 0.25));
+        blockButton = static_cast<uint32_t>(ini.GetLongValue("TimedBlocking", "iBlockButton", 257));
+        timedBlockStaminaLoss = ini.GetBoolValue("TimedBlocking", "bTimedBlockStaminaLoss", false);
+        timedBlockStaminaGain = ini.GetBoolValue("TimedBlocking", "bTimedBlockStaminaGain", true);
+        timedBlockStaminaAmountGain = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockStaminaAmountGain", 20.0));
+        timedBlockStaminaAmountLossMult = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockStaminaAmountLossMult", 0.5));
+        timedBlockDamageReduction = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockDamageReduction", 1.0));
 
 
         // ===== CASTING DEBUFF =====
@@ -155,18 +172,85 @@ namespace TheLastBreath {
         ini.SetValue("Stamina", nullptr, "; Stamina cost per rapid combo arrow");                      // new
         ini.SetDoubleValue("Stamina", "fRapidComboStaminaCost", rapidComboStaminaCost);
 
-        // ===== COMBAT SYSTEM =====
+        ini.SetValue("Combat", nullptr, nullptr);
+        ini.SetValue("Combat", nullptr, "; ============================================");
+        ini.SetValue("Combat", nullptr, "; COMBAT DAMAGE SYSTEM");
+        ini.SetValue("Combat", nullptr, "; ============================================");
+        ini.SetValue("Combat", nullptr, nullptr);
 
-        ini.SetValue("Stamina", nullptr, nullptr);
-        ini.SetValue("Combat", nullptr, "; Stamina Loss on Taking Damage");
-        ini.SetValue("Combat", nullptr, "; Enable stamina loss when hit by enemies");
+        ini.SetValue("Combat", nullptr, "; Enable stamina loss when player is hit (no block)");
         ini.SetBoolValue("Combat", "bEnableStaminaLossOnHit", enableStaminaLossOnHit);
 
         ini.SetValue("Combat", nullptr, nullptr);
-        ini.SetValue("Combat", nullptr, "; Base stamina loss when hit (scales with armor skill)");
-        ini.SetValue("Combat", nullptr, "; Formula: Loss = Base * (100 - ArmorSkill) / 100");
-        ini.SetValue("Combat", nullptr, "; At skill 0: Lose 100% of base | At skill 50: Lose 50% | At skill 100: Lose 0%");
-        ini.SetDoubleValue("Combat", "fStaminaLossOnHitBase", staminaLossOnHitBase);
+        ini.SetValue("Combat", nullptr, "; Stamina loss formula: (BaseIntercept - (ScalingFactor * MaxStamina)) + FlatAddition");
+        ini.SetValue("Combat", nullptr, "; Example: (14.5 - (0.018 * 100)) + 1 = 13.7 stamina loss at 100 max stamina");
+        ini.SetValue("Combat", nullptr, "; Base stamina loss at 0 max stamina");
+        ini.SetDoubleValue("Combat", "fStaminaLossBaseIntercept", staminaLossBaseIntercept);
+
+        ini.SetValue("Combat", nullptr, "; How much to reduce per point of max stamina");
+        ini.SetDoubleValue("Combat", "fStaminaLossScalingFactor", staminaLossScalingFactor);
+
+        ini.SetValue("Combat", nullptr, "; Flat amount always added to the result");
+        ini.SetDoubleValue("Combat", "fStaminaLossFlatAddition", staminaLossFlatAddition);
+
+        ini.SetValue("Combat", nullptr, nullptr);
+        ini.SetValue("Combat", nullptr, "; Enable stamina loss when blocking (regular block, not timed)");
+        ini.SetBoolValue("Combat", "bEnableRegularBlockStaminaLossOnHit", enableRegularBlockStaminaLossOnHit);
+
+        ini.SetValue("Combat", nullptr, nullptr);
+        ini.SetValue("Combat", nullptr, "; --- Regular Block (Late/Missed Window) ---");
+        ini.SetValue("Combat", nullptr, "; Stamina multiplier for regular blocks (0.5 = half loss, 2.0 = double loss)");
+        ini.SetDoubleValue("Combat", "fRegularBlockStaminaMult", regularBlockStaminaMult);
+
+        // ===== TIMED BLOCKING SYSTEM =====
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; ============================================");
+        ini.SetValue("TimedBlocking", nullptr, "; TIMED BLOCKING SYSTEM");
+        ini.SetValue("TimedBlocking", nullptr, "; ============================================");
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+
+        ini.SetValue("TimedBlocking", nullptr, "; Enable timed blocking system");
+        ini.SetBoolValue("TimedBlocking", "bEnableTimedBlocking", enableTimedBlocking);
+
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; Time window for successful timed block (seconds)");
+        ini.SetValue("TimedBlocking", nullptr, "; If you block and get hit within this window, it's a TIMED block");
+        ini.SetDoubleValue("TimedBlocking", "fTimedBlockWindow", timedBlockWindow);
+
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; Animation delay before timed window starts (seconds)");
+        ini.SetValue("TimedBlocking", nullptr, "; Allows block animation to play before window activates");
+        ini.SetDoubleValue("TimedBlocking", "fTimedBlockAnimationDelay", timedBlockAnimationDelay);
+
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; Block button universal key code");
+        ini.SetValue("TimedBlocking", nullptr, "; Mouse: 256=left, 257=right, 258=middle");
+        ini.SetValue("TimedBlocking", nullptr, "; Keyboard: Use scan codes (e.g., 42=LShift)");
+        ini.SetValue("TimedBlocking", nullptr, "; Gamepad: 266+ offset");
+        ini.SetLongValue("TimedBlocking", "iBlockButton", blockButton);
+
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; --- Timed Block (Perfect Timing) ---");
+        ini.SetValue("TimedBlocking", nullptr, "; Enable stamina LOSS on timed block");
+        ini.SetBoolValue("TimedBlocking", "bTimedBlockStaminaLoss", timedBlockStaminaLoss);
+
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; Enable stamina GAIN on timed block");
+        ini.SetBoolValue("TimedBlocking", "bTimedBlockStaminaGain", timedBlockStaminaGain);
+
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; Flat stamina gain on timed block");
+        ini.SetDoubleValue("TimedBlocking", "fTimedBlockStaminaAmountGain", timedBlockStaminaAmountGain);
+
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; Stamina loss multiplier (applied to regular block loss)");
+        ini.SetValue("TimedBlocking", nullptr, "; Example: regular block loses 10, mult 0.5 = timed block loses 5");
+        ini.SetDoubleValue("TimedBlocking", "fTimedBlockStaminaAmountLossMult", timedBlockStaminaAmountLossMult);
+
+        ini.SetValue("TimedBlocking", nullptr, nullptr);
+        ini.SetValue("TimedBlocking", nullptr, "; Damage reduction for timed blocks (1.0 = 100% negated, 0.5 = 50% reduction)");
+        ini.SetDoubleValue("TimedBlocking", "fTimedBlockDamageReduction", timedBlockDamageReduction);
+
 
         // ===== EXHAUSTION SYSTEM =====  // new
         ini.SetValue("Exhaustion", nullptr, nullptr);

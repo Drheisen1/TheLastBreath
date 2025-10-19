@@ -34,7 +34,7 @@ e) Blocking:
 - Can be turned off entirely.
 
 f) Exhaustion Debuff:
-- When stamina reaches zero, players will receive an exhaustion debuff.
+- When stamina reaches a threshold, players will receive an exhaustion debuff. The threshold is configurable, Default is set to 20 Points.
 - Attack damage is lowered by 25%. this can be tweaked.
 - movement speed is lowered by 20%. this can be tweaked.
 - damage recieved is increased by 15%. this can be tweaked.
@@ -45,14 +45,13 @@ g) Stamina Loss on hit:
 
 2) Casting Slow Debuff:
 - any sort of casting (spells, staves, etc.) will apply a slow debuff to the caster.
-- The slow percentage can be tweaked, Default is set to 20%.
+- The slow percentage can be tweaked, Default is set to 50%.
 - scales based on the skill level of the spell type being cast.
 - Heavier debuff for dual casting.
 - Can be turned off entirely.
 
 
 TO DO:
-- Implement Stamina Exaushtion debuff effects. -> Lowered movement speed, attack speed, etc. below a certain stamina threshold.
 - Implement Stamina loss on blocking a hit . -> Blocking an attack will drain a flat amount of stamina.
 - Implement a timed block system. -> Successful timed blocks will reduce or negate stamina loss.
 - Add stamina Drain for high carry weight.

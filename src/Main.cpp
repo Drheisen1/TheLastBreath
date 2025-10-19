@@ -55,6 +55,7 @@ namespace {
                 SKSE::GetTaskInterface()->AddTask([]() {
                     TheLastBreath::RangedStaminaHandler::GetSingleton()->Update();
                     TheLastBreath::ExhaustionHandler::GetSingleton()->Update();
+                    TheLastBreath::TimedBlockHandler::GetSingleton()->Update();
                     TheLastBreath::CombatHandler::GetSingleton()->Update();
                     });
                 std::this_thread::sleep_for(100ms);
@@ -79,6 +80,60 @@ namespace {
             RE::InputEvent* const* a_event,
             RE::BSTEventSource<RE::InputEvent*>* a_eventSource) override
         {
+            if (!a_event) {
+                return RE::BSEventNotifyControl::kContinue;
+            }
+
+            auto config = TheLastBreath::Config::GetSingleton();
+            auto player = RE::PlayerCharacter::GetSingleton();
+
+            // Device offsets for universal key codes
+            constexpr uint32_t kKeyboardOffset = 0;
+            constexpr uint32_t kMouseOffset = 256;
+            constexpr uint32_t kGamepadOffset = 266;
+
+            if (player && config->enableTimedBlocking) {
+                for (auto event = *a_event; event; event = event->next) {
+                    if (event->GetEventType() == RE::INPUT_EVENT_TYPE::kButton) {
+                        auto buttonEvent = event->AsButtonEvent();
+                        if (buttonEvent) {
+                            auto device = buttonEvent->GetDevice();
+                            uint32_t keyCode = buttonEvent->GetIDCode();
+
+                            // Convert to universal key code using device offset
+                            switch (device) {
+                            case RE::INPUT_DEVICE::kMouse:
+                                keyCode += kMouseOffset;
+                                break;
+                            case RE::INPUT_DEVICE::kKeyboard:
+                                keyCode += kKeyboardOffset;
+                                break;
+                            case RE::INPUT_DEVICE::kGamepad:
+                                keyCode += kGamepadOffset;
+                                break;
+                            default:
+                                continue;
+                            }
+
+                            // Check if this is our configured block button
+                            if (keyCode == config->blockButton) {
+                                if (buttonEvent->IsDown() && buttonEvent->value > 0.0f) {
+                                    logger::debug("Block button PRESSED (key: {})", keyCode);
+                                    TheLastBreath::TimedBlockHandler::GetSingleton()->OnButtonPressed(player);
+                                    TheLastBreath::CombatHandler::GetSingleton()->OnBlockStart(player);
+                                }
+                                else if (buttonEvent->IsUp() || buttonEvent->value == 0.0f) {
+                                    logger::debug("Block button RELEASED (key: {})", keyCode);
+                                    TheLastBreath::TimedBlockHandler::GetSingleton()->OnButtonReleased(player);
+                                    TheLastBreath::CombatHandler::GetSingleton()->OnBlockStop(player);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Original animation registration logic
             if (g_registered.load()) {
                 return RE::BSEventNotifyControl::kContinue;
             }
@@ -87,15 +142,10 @@ namespace {
                 return RE::BSEventNotifyControl::kContinue;
             }
 
-            if (!a_event) {
-                return RE::BSEventNotifyControl::kContinue;
-            }
-
             if (g_registered.exchange(true)) {
                 return RE::BSEventNotifyControl::kContinue;
             }
 
-            auto player = RE::PlayerCharacter::GetSingleton();
             if (player) {
                 bool result = player->AddAnimationGraphEventSink(TheLastBreath::AnimationEventHandler::GetSingleton());
                 if (result) {
@@ -128,6 +178,7 @@ namespace {
         auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
         auto log = std::make_shared<spdlog::logger>("global log", std::move(sink));
 
+        // Load INI config early
         auto config = TheLastBreath::Config::GetSingleton();
         config->Load();
 
@@ -144,8 +195,31 @@ namespace {
         case SKSE::MessagingInterface::kDataLoaded:
         {
             logger::debug("kDataLoaded message received");
+
+            // Load sound descriptors from plugin (NOW that game data is loaded)
+            auto config = TheLastBreath::Config::GetSingleton();
+            auto dataHandler = RE::TESDataHandler::GetSingleton();
+            const char* pluginName = "TheLastBreath.esp";
+
+            config->parryWeaponSound1 = dataHandler->LookupFormID(0x800, pluginName);
+            config->parryWeaponSound2 = dataHandler->LookupFormID(0x801, pluginName);
+            config->parryWeaponSound3 = dataHandler->LookupFormID(0x802, pluginName);
+            config->parryWeaponSound4 = dataHandler->LookupFormID(0x803, pluginName);
+            config->parryShieldSound1 = dataHandler->LookupFormID(0x804, pluginName);
+            config->parryShieldSound2 = dataHandler->LookupFormID(0x805, pluginName);
+            config->parryShieldSound3 = dataHandler->LookupFormID(0x806, pluginName);
+            config->parryShieldSound4 = dataHandler->LookupFormID(0x807, pluginName);
+
+            if (config->parryWeaponSound1 == 0) {
+                logger::error("Failed to load parry sounds from plugin!");
+            }
+            else {
+                logger::info("Parry sounds loaded successfully");
+            }
+
             logger::info("Configuration loaded");
 
+            // Register event handlers
             if (auto inputManager = RE::BSInputDeviceManager::GetSingleton()) {
                 inputManager->AddEventSink(InputEventHandler::GetSingleton());
                 logger::debug("Input event handler registered");

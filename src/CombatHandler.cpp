@@ -3,114 +3,218 @@
 
 namespace TheLastBreath {
 
-    void CombatHandler::OnActorHit(RE::Actor* victim, RE::Actor* aggressor, float damage) {
+    void CombatHandler::OnBlockStart(RE::Actor* actor) {
+        if (!actor) return;
+
+        auto config = Config::GetSingleton();
+        if (!config->enableStaminaManagement || !config->enableBlockStaminaDrain) {
+            return;
+        }
+
+        auto formID = actor->GetFormID();
+        auto& state = actorBlockStates[formID];
+
+        if (!state.isBlocking) {
+            state.isBlocking = true;
+            state.blockStartTime = std::chrono::steady_clock::now();
+            state.lastBlockDrainTime = state.blockStartTime - std::chrono::milliseconds(200);  // Immediate first drain
+            logger::debug("Block started - continuous stamina drain begins");
+        }
+    }
+
+    void CombatHandler::OnBlockStop(RE::Actor* actor) {
+        if (!actor) return;
+
+        auto formID = actor->GetFormID();
+        auto it = actorBlockStates.find(formID);
+        if (it != actorBlockStates.end()) {
+            logger::debug("Block stopped - stamina drain ends");
+            actorBlockStates.erase(it);
+        }
+    }
+
+    void CombatHandler::ApplyTimedBlockDamageResistance(RE::Actor* victim) {
         if (!victim) return;
 
         auto config = Config::GetSingleton();
-        if (!config->enableStaminaManagement || !config->enableStaminaLossOnHit) return;
+        if (config->timedBlockDamageReduction <= 0.0f) return;
 
-        // Only apply to player
-        if (!victim->IsPlayerRef()) return;
+        float resistAmount = config->timedBlockDamageReduction * 100.0f;
 
-        // Get armor skill (higher of light or heavy)
-        float armorSkill = GetArmorSkill(victim);
+        victim->AsActorValueOwner()->ModActorValue(
+            RE::ActorValue::kDamageResist,
+            resistAmount);
 
-        // Calculate stamina loss: Base * (100 - Skill) / 100
-        float skillMultiplier = (100.0f - armorSkill) / 100.0f;
-        float staminaLoss = config->staminaLossOnHitBase * skillMultiplier;
+        auto& state = actorsWithDamageResistance[victim->GetFormID()];
+        state.resistAmount = resistAmount;
+        state.applyTime = std::chrono::steady_clock::now();
 
-        if (staminaLoss > 0.0f) {
-            auto formID = victim->GetFormID();
-            auto now = std::chrono::steady_clock::now();
-
-            // If there's already an active drain, add to it
-            if (auto it = activeDrains.find(formID); it != activeDrains.end()) {
-                it->second.totalAmount += staminaLoss;
-                it->second.remaining += staminaLoss;
-                logger::debug("Added {:.2f} to existing drain (total: {:.2f}, skill: {:.0f})",
-                    staminaLoss, it->second.totalAmount, armorSkill);
-            }
-            else {
-                // Create new gradual drain
-                StaminaDrain drain;
-                drain.totalAmount = staminaLoss;
-                drain.remaining = staminaLoss;
-                drain.startTime = now;
-                drain.lastDrainTime = now;
-                drain.duration = 3.0f;  // 3 seconds
-                activeDrains[formID] = drain;
-
-                logger::debug("Started gradual stamina drain: {:.2f} over {:.1f}s (skill: {:.0f})",
-                    staminaLoss, drain.duration, armorSkill);
-            }
-        }
+        logger::debug("Applied {:.0f}% damage resistance for timed block", resistAmount);
     }
 
     void CombatHandler::Update() {
         auto config = Config::GetSingleton();
-        if (!config->enableStaminaManagement || !config->enableStaminaLossOnHit) {
-            activeDrains.clear();
+        auto now = std::chrono::steady_clock::now();
+
+        // Handle damage resistance removal
+        if (!actorsWithDamageResistance.empty()) {
+            std::vector<RE::FormID> toRemove;
+
+            for (auto& [formID, state] : actorsWithDamageResistance) {
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - state.applyTime).count();
+
+                if (elapsed >= 100) {
+                    auto actor = RE::TESForm::LookupByID<RE::Actor>(formID);
+                    if (actor) {
+                        actor->AsActorValueOwner()->ModActorValue(
+                            RE::ActorValue::kDamageResist,
+                            -state.resistAmount);
+                        logger::debug("Removed {:.0f}% damage resistance", state.resistAmount);
+                    }
+                    toRemove.push_back(formID);
+                }
+            }
+
+            for (auto formID : toRemove) {
+                actorsWithDamageResistance.erase(formID);
+            }
+        }
+
+        // Handle block stamina drain
+        if (!config->enableStaminaManagement || !config->enableBlockStaminaDrain) {
             return;
         }
 
-        auto now = std::chrono::steady_clock::now();
+        for (auto it = actorBlockStates.begin(); it != actorBlockStates.end();) {
+            auto& [formID, state] = *it;
 
-        for (auto it = activeDrains.begin(); it != activeDrains.end();) {
-            auto& [formID, drain] = *it;
-
-            auto player = RE::PlayerCharacter::GetSingleton();
-            if (!player || player->GetFormID() != formID) {
-                it = activeDrains.erase(it);
+            if (!state.isBlocking) {
+                it = actorBlockStates.erase(it);
                 continue;
             }
 
-            // Calculate time since last drain
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                now - drain.lastDrainTime).count();
+            RE::Actor* actor = RE::TESForm::LookupByID<RE::Actor>(formID);
+            if (!actor) {
+                it = actorBlockStates.erase(it);
+                continue;
+            }
 
-            if (elapsed >= 100) {  // Drain every 100ms
-                float secondsElapsed = static_cast<float>(elapsed) / 1000.0f;
-                float drainRate = drain.totalAmount / drain.duration;  // stamina per second
-                float costThisTick = drainRate * secondsElapsed;
+            auto blockElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - state.lastBlockDrainTime).count();
 
-                // Don't drain more than remaining
-                costThisTick = std::min(costThisTick, drain.remaining);
-
-                if (costThisTick > 0.0f) {
-                    player->AsActorValueOwner()->RestoreActorValue(
-                        RE::ACTOR_VALUE_MODIFIER::kDamage,
-                        RE::ActorValue::kStamina,
-                        -costThisTick);
-
-                    drain.remaining -= costThisTick;
-                    drain.lastDrainTime = now;
-
-                    logger::debug("Gradual drain tick: {:.2f} stamina ({:.2f} remaining)",
-                        costThisTick, drain.remaining);
-                }
-
-                // Remove if depleted
-                if (drain.remaining <= 0.01f) {
-                    logger::debug("Gradual drain completed");
-                    it = activeDrains.erase(it);
+            if (blockElapsed >= 200) {
+                const float current = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kStamina);
+                if (current <= 0.1f) {
+                    logger::debug("Stamina exhausted - stopping block drain");
+                    it = actorBlockStates.erase(it);
                     continue;
                 }
+
+                const float secondsElapsed = static_cast<float>(blockElapsed) / 1000.0f;
+                const float costThisTick = config->blockHoldStaminaCostPerSecond * secondsElapsed;
+                const float actualCost = std::min(costThisTick, current);
+
+                actor->AsActorValueOwner()->RestoreActorValue(
+                    RE::ACTOR_VALUE_MODIFIER::kDamage,
+                    RE::ActorValue::kStamina,
+                    -actualCost);
+
+                logger::debug("Block hold drain: {:.2f} stamina ({} ms since last)",
+                    actualCost, static_cast<int>(blockElapsed));
+
+                state.lastBlockDrainTime = now;
             }
 
             ++it;
         }
     }
 
-    float CombatHandler::GetArmorSkill(RE::Actor* actor) {
-        if (!actor) return 0.0f;
+    void CombatHandler::OnActorHit(RE::Actor* victim, RE::Actor* aggressor, float damage, BlockType blockType) {
+        if (!victim) return;
 
-        auto avOwner = actor->AsActorValueOwner();
+        auto config = Config::GetSingleton();
+        if (!config->enableStaminaManagement) return;
 
-        float lightArmor = avOwner->GetActorValue(RE::ActorValue::kLightArmor);
-        float heavyArmor = avOwner->GetActorValue(RE::ActorValue::kHeavyArmor);
+        if (!victim->IsPlayerRef()) return;
 
-        // Return the higher of the two skills
-        return std::max(lightArmor, heavyArmor);
+        float maxStamina = victim->AsActorValueOwner()->GetPermanentActorValue(RE::ActorValue::kStamina);
+        float baseLoss = (config->staminaLossBaseIntercept - (config->staminaLossScalingFactor * maxStamina))
+            + config->staminaLossFlatAddition;
+        baseLoss = std::max(0.0f, baseLoss);
+
+        logger::debug("Base stamina loss: {:.2f} (maxStamina: {:.0f})", baseLoss, maxStamina);
+
+        // Handle TIMED BLOCK
+        if (blockType == BlockType::Timed && config->enableTimedBlocking) {
+            logger::info("=== TIMED BLOCK SUCCESS ===");
+
+            // Play spark and sound effects
+            BlockEffectsHandler::GetSingleton()->OnSuccessfulTimedBlock(victim);
+
+            ApplyTimedBlockDamageResistance(victim);
+
+            if (config->timedBlockStaminaLoss) {
+                float regularBlockLoss = baseLoss * config->regularBlockStaminaMult;
+                float timedBlockLoss = regularBlockLoss * config->timedBlockStaminaAmountLossMult;
+
+                if (timedBlockLoss > 0.0f) {
+                    victim->AsActorValueOwner()->RestoreActorValue(
+                        RE::ACTOR_VALUE_MODIFIER::kDamage,
+                        RE::ActorValue::kStamina,
+                        -timedBlockLoss);
+                    logger::info("Timed block stamina LOSS: {:.2f} (regular: {:.2f} x {:.2f})",
+                        timedBlockLoss, regularBlockLoss, config->timedBlockStaminaAmountLossMult);
+                }
+            }
+            else if (config->timedBlockStaminaGain) {
+                float staminaGain = config->timedBlockStaminaAmountGain;
+                if (staminaGain > 0.0f) {
+                    victim->AsActorValueOwner()->RestoreActorValue(
+                        RE::ACTOR_VALUE_MODIFIER::kDamage,
+                        RE::ActorValue::kStamina,
+                        staminaGain);
+                    logger::info("Timed block stamina GAIN: {:.2f}", staminaGain);
+                }
+            }
+
+            return;
+        }
+
+        // Handle REGULAR BLOCK
+        float finalLoss = 0.0f;
+        if (blockType == BlockType::Regular) {
+            // Reset timed block counter since this was not a timed block
+            BlockEffectsHandler::GetSingleton()->OnTimedBlockFailed(victim);
+
+            if (config->enableRegularBlockStaminaLossOnHit) {
+                finalLoss = baseLoss * config->regularBlockStaminaMult;
+                logger::debug("Regular block - stamina loss: {:.2f}", finalLoss);
+            }
+            else {
+                logger::debug("Regular block - stamina loss disabled");
+                return;
+            }
+        }
+        // Handle NO BLOCK
+        else if (blockType == BlockType::None) {
+            // Reset timed block counter since no block happened
+            BlockEffectsHandler::GetSingleton()->OnTimedBlockFailed(victim);
+
+            if (!config->enableStaminaLossOnHit) {
+                logger::debug("No block - stamina loss disabled");
+                return;
+            }
+            finalLoss = baseLoss;
+            logger::debug("No block - stamina loss: {:.2f}", finalLoss);
+        }
+
+        if (finalLoss > 0.0f) {
+            victim->AsActorValueOwner()->RestoreActorValue(
+                RE::ACTOR_VALUE_MODIFIER::kDamage,
+                RE::ActorValue::kStamina,
+                -finalLoss);
+        }
     }
 
 }

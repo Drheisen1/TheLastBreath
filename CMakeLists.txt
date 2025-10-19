@@ -27,6 +27,8 @@ add_library(
     src/RangedStaminaHandler.cpp
     src/ExhaustionHandler.cpp
     src/HitEventHandler.cpp
+    src/TimedBlockHandler.cpp
+    src/BlockEffectsHandler.cpp
     src/Config.cpp
 )
 
