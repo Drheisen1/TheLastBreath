@@ -18,6 +18,10 @@ namespace TheLastBreath {
 
         void OnButtonPressed(RE::Actor* actor);
         void OnButtonReleased(RE::Actor* actor);
+
+        // Check if timed block window is currently active for this actor
+        bool IsTimedBlockWindowActive(RE::Actor* actor) const;
+
         BlockType CheckBlockType(RE::Actor* actor);
         void ConsumeTimedBlock(RE::Actor* actor);
         void Update();  // Check button state each frame

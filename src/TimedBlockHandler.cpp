@@ -1,4 +1,5 @@
 #include "TheLastBreath/TimedBlockHandler.h"
+#include "TheLastBreath/BlockEffectsHandler.h"  // ADDED - Need to get parry count
 #include "TheLastBreath/Config.h"
 
 namespace TheLastBreath {
@@ -31,6 +32,20 @@ namespace TheLastBreath {
         }
     }
 
+    bool TimedBlockHandler::IsTimedBlockWindowActive(RE::Actor* actor) const {
+        if (!actor) return false;
+
+        auto it = actorStates.find(actor->GetFormID());
+        if (it == actorStates.end()) {
+            return false;
+        }
+
+        const auto& state = it->second;
+
+        // Window must be active and not yet consumed
+        return state.windowActive && !state.windowConsumed;
+    }
+
     void TimedBlockHandler::Update() {
         auto config = Config::GetSingleton();
         if (!config->enableTimedBlocking) return;
@@ -46,7 +61,27 @@ namespace TheLastBreath {
                 if (timeSincePress >= config->timedBlockAnimationDelay) {
                     state.windowActive = true;
                     state.windowStartTime = now;
-                    logger::debug("Timed block window NOW active ({:.1f}s)", config->timedBlockWindow);
+
+                    // Get actor and determine which window will be used
+                    RE::Actor* actor = RE::TESForm::LookupByID<RE::Actor>(formID);
+                    if (actor) {
+                        auto blockEffects = BlockEffectsHandler::GetSingleton();
+                        uint32_t currentParryCount = blockEffects->GetCurrentParryCount(actor);
+                        uint32_t nextParryLevel = currentParryCount + 1;
+
+                        float windowDuration = 0.0f;
+                        switch (nextParryLevel) {
+                        case 1: windowDuration = config->timedBlockWindow1; break;
+                        case 2: windowDuration = config->timedBlockWindow2; break;
+                        case 3: windowDuration = config->timedBlockWindow3; break;
+                        case 4: windowDuration = config->timedBlockWindow4; break;
+                        case 5: windowDuration = config->timedBlockWindow5; break;
+                        default: windowDuration = config->timedBlockWindow3; break;
+                        }
+
+                        logger::debug("Timed block window NOW active - Parry {} window: {:.3f}s",
+                            nextParryLevel, windowDuration);
+                    }
                 }
             }
         }
@@ -83,21 +118,45 @@ namespace TheLastBreath {
             return BlockType::Regular;
         }
 
-        // Check if hit is within timed window
+        // ============================================
+        // PROGRESSIVE WINDOW SYSTEM
+        // ============================================
+
+        // Get current parry level from BlockEffectsHandler
+        auto blockEffects = BlockEffectsHandler::GetSingleton();
+        uint32_t currentParryCount = blockEffects->GetCurrentParryCount(actor);
+        uint32_t nextParryLevel = currentParryCount + 1;  // Next parry will be 1-5
+
+        // Select appropriate window based on next parry level
+        float windowDuration = 0.0f;
+        switch (nextParryLevel) {
+        case 1: windowDuration = config->timedBlockWindow1; break;
+        case 2: windowDuration = config->timedBlockWindow2; break;
+        case 3: windowDuration = config->timedBlockWindow3; break;
+        case 4: windowDuration = config->timedBlockWindow4; break;
+        case 5: windowDuration = config->timedBlockWindow5; break;
+        default: windowDuration = config->timedBlockWindow3; break;  // Fallback
+        }
+
+        // Check if hit is within the selected window
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
             now - state.windowStartTime).count();
 
         float elapsedSeconds = static_cast<float>(elapsed) / 1000.0f;
 
-        if (elapsedSeconds <= config->timedBlockWindow) {
-            logger::debug("TIMED BLOCK! Hit within window ({:.3f}s / {:.1f}s)",
-                elapsedSeconds, config->timedBlockWindow);
+        if (elapsedSeconds <= windowDuration) {
+            logger::info("TIMED BLOCK! Parry {} window ({:.3f}s / {:.3f}s)",
+                nextParryLevel,
+                elapsedSeconds,
+                windowDuration);
             return BlockType::Timed;
         }
         else {
-            logger::debug("Regular block - hit outside window ({:.3f}s / {:.1f}s)",
-                elapsedSeconds, config->timedBlockWindow);
+            logger::debug("Regular block - missed Parry {} window ({:.3f}s / {:.3f}s)",
+                nextParryLevel,
+                elapsedSeconds,
+                windowDuration);
             return BlockType::Regular;
         }
     }

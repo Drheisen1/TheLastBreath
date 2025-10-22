@@ -30,6 +30,9 @@ add_library(
     src/TimedBlockHandler.cpp
     src/BlockEffectsHandler.cpp
     src/Config.cpp
+    src/Data.cpp
+    src/HitProcessor.cpp
+    src/EldenCounterCompact.cpp
 )
 
 target_include_directories(

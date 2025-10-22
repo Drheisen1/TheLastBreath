@@ -8,6 +8,8 @@
 #include "TheLastBreath/ExhaustionHandler.h"
 #include "TheLastBreath/HitEventHandler.h"
 #include "TheLastBreath/CombatHandler.h"
+#include "TheLastBreath/Data.h"
+#include "TheLastBreath/EldenCounterCompat.h"
 #include <atomic>
 #include <thread>
 
@@ -57,6 +59,7 @@ namespace {
                     TheLastBreath::ExhaustionHandler::GetSingleton()->Update();
                     TheLastBreath::TimedBlockHandler::GetSingleton()->Update();
                     TheLastBreath::CombatHandler::GetSingleton()->Update();
+                    TheLastBreath::BlockEffectsHandler::GetSingleton()->Update();
                     });
                 std::this_thread::sleep_for(100ms);
             }
@@ -196,26 +199,8 @@ namespace {
         {
             logger::debug("kDataLoaded message received");
 
-            // Load sound descriptors from plugin (NOW that game data is loaded)
-            auto config = TheLastBreath::Config::GetSingleton();
-            auto dataHandler = RE::TESDataHandler::GetSingleton();
-            const char* pluginName = "TheLastBreath.esp";
-
-            config->parryWeaponSound1 = dataHandler->LookupFormID(0x800, pluginName);
-            config->parryWeaponSound2 = dataHandler->LookupFormID(0x801, pluginName);
-            config->parryWeaponSound3 = dataHandler->LookupFormID(0x802, pluginName);
-            config->parryWeaponSound4 = dataHandler->LookupFormID(0x803, pluginName);
-            config->parryShieldSound1 = dataHandler->LookupFormID(0x804, pluginName);
-            config->parryShieldSound2 = dataHandler->LookupFormID(0x805, pluginName);
-            config->parryShieldSound3 = dataHandler->LookupFormID(0x806, pluginName);
-            config->parryShieldSound4 = dataHandler->LookupFormID(0x807, pluginName);
-
-            if (config->parryWeaponSound1 == 0) {
-                logger::error("Failed to load parry sounds from plugin!");
-            }
-            else {
-                logger::info("Parry sounds loaded successfully");
-            }
+            // Load all game data (sounds, FX, etc.)
+            TheLastBreath::Data::LoadData();
 
             logger::info("Configuration loaded");
 
@@ -246,6 +231,9 @@ namespace {
             else {
                 logger::error("Failed to get UI singleton");
             }
+
+			// Initialize Elden Counter compatibility
+            TheLastBreath::EldenCounterCompat::GetSingleton()->Initialize();
 
             break;
         }

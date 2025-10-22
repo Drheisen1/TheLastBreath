@@ -35,7 +35,6 @@ namespace TheLastBreath {
         // FILTER: Only weapon/projectile hits, NO spells
         bool isWeaponHit = false;
 
-        // Check if hit came from a weapon (melee)
         if (a_event->source != 0) {
             auto sourceForm = RE::TESForm::LookupByID(a_event->source);
             if (sourceForm && sourceForm->Is(RE::FormType::Weapon)) {
@@ -43,7 +42,6 @@ namespace TheLastBreath {
             }
         }
 
-        // Check if hit came from a projectile (arrow/bolt)
         if (!isWeaponHit && a_event->projectile != 0) {
             auto projectileForm = RE::TESForm::LookupByID(a_event->projectile);
             if (projectileForm && projectileForm->Is(RE::FormType::Projectile)) {
@@ -51,7 +49,6 @@ namespace TheLastBreath {
             }
         }
 
-        // Ignore spell hits
         if (!isWeaponHit) {
             logger::debug("Ignoring non-weapon hit (likely spell)");
             return RE::BSEventNotifyControl::kContinue;
@@ -65,19 +62,37 @@ namespace TheLastBreath {
             auto timedBlockHandler = TheLastBreath::TimedBlockHandler::GetSingleton();
             blockType = timedBlockHandler->CheckBlockType(victimActor);
 
-            // Consume the window if it was a timed block
             if (blockType == BlockType::Timed) {
                 timedBlockHandler->ConsumeTimedBlock(victimActor);
             }
         }
 
-        logger::debug("Player hit by {} (block type: {})",
+        // ============================================
+        // GET ACTUAL DAMAGE FROM lastHitData
+        // ============================================
+        float actualDamageTaken = 0.0f;
+
+        auto currentProcess = victimActor->GetActorRuntimeData().currentProcess;
+        if (currentProcess && currentProcess->middleHigh) {
+            auto lastHitData = currentProcess->middleHigh->lastHitData;
+            if (lastHitData) {
+                actualDamageTaken = lastHitData->totalDamage;
+
+                logger::debug("Actual damage from lastHitData: {:.2f} (physical: {:.2f}, blocked: {:.1f}%)",
+                    actualDamageTaken,
+                    lastHitData->physicalDamage,
+                    lastHitData->percentBlocked * 100.0f);
+            }
+        }
+
+        logger::debug("Player hit by {} (block type: {}, damage: {:.2f})",
             aggressorActor->GetName(),
             blockType == BlockType::Timed ? "TIMED" :
-            blockType == BlockType::Regular ? "REGULAR" : "NONE");
+            blockType == BlockType::Regular ? "REGULAR" : "NONE",
+            actualDamageTaken);
 
-        // Call combat handler with block type info
-        CombatHandler::GetSingleton()->OnActorHit(victimActor, aggressorActor, 0.0f, blockType);
+        // Pass actual damage to combat handler
+        CombatHandler::GetSingleton()->OnActorHit(victimActor, aggressorActor, actualDamageTaken, blockType);
 
         return RE::BSEventNotifyControl::kContinue;
     }

@@ -3,6 +3,7 @@
 #include "TheLastBreath/RangedStaminaHandler.h"
 #include "TheLastBreath/TimedBlockHandler.h"
 #include "TheLastBreath/Config.h"
+#include "TheLastBreath/EldenCounterCompat.h"
 
 
 namespace TheLastBreath {
@@ -82,36 +83,55 @@ namespace TheLastBreath {
             slowMgr->RemoveSlowdown(actor, SlowType::Crossbow);
         }
 
-		// BowRapidCombo event
+        // Rapid Combo START event (preventive check)
+        else if (eventName == "StartCustomA") {
+            auto config = Config::GetSingleton();
+
+            bool isRanged = false;
+            if (const auto obj = actor->GetEquippedObject(false)) {
+                if (const auto weap = obj->As<RE::TESObjectWEAP>()) {
+                    const auto wt = weap->GetWeaponType();
+                    isRanged = (wt == RE::WEAPON_TYPE::kBow || wt == RE::WEAPON_TYPE::kCrossbow);
+                }
+            }
+
+        }
+
+        // Rapid Combo SHOT event (cost + safety check)
         else if (eventName == "HKS_TriggerA") {
             logger::debug("HKS_TriggerA event (Rapid Combo)");
 
             auto config = Config::GetSingleton();
-            if (config->enableStaminaManagement && config->enableRangedStaminaCost
-                && config->enableRapidComboStaminaCost) {
 
-                bool isRanged = false;
-                if (const auto obj = actor->GetEquippedObject(false)) {
-                    if (const auto weap = obj->As<RE::TESObjectWEAP>()) {
-                        const auto wt = weap->GetWeaponType();
-                        isRanged = (wt == RE::WEAPON_TYPE::kBow ||
-                            wt == RE::WEAPON_TYPE::kCrossbow);
-                    }
+            if (!config->enableStaminaManagement || !config->enableRangedStaminaCost) {
+                return RE::BSEventNotifyControl::kContinue;
+            }
+
+            bool isRanged = false;
+            if (const auto obj = actor->GetEquippedObject(false)) {
+                if (const auto weap = obj->As<RE::TESObjectWEAP>()) {
+                    const auto wt = weap->GetWeaponType();
+                    isRanged = (wt == RE::WEAPON_TYPE::kBow || wt == RE::WEAPON_TYPE::kCrossbow);
                 }
+            }
 
-                if (isRanged) {
-                    const float cost = config->rapidComboStaminaCost;
-                    if (cost > 0.0f) {
-                        actor->AsActorValueOwner()->RestoreActorValue(
-                            RE::ACTOR_VALUE_MODIFIER::kDamage,
-                            RE::ActorValue::kStamina,
-                            -cost);
-                        logger::debug("Rapid Combo arrow cost: {}", cost);
-                    }
+            if (!isRanged) {
+                return RE::BSEventNotifyControl::kContinue;
+            }
+
+
+            // Deduct stamina cost
+            if (config->enableRapidComboStaminaCost) {
+                const float cost = config->rapidComboStaminaCost;
+                if (cost > 0.0f) {
+                    actor->AsActorValueOwner()->RestoreActorValue(
+                        RE::ACTOR_VALUE_MODIFIER::kDamage,
+                        RE::ActorValue::kStamina,
+                        -cost);
+                    logger::debug("Rapid Combo stamina cost: {}", cost);
                 }
             }
         }
-
 
         // CASTING EVENTS
         else if (eventName == "BeginCastLeft") {
@@ -148,11 +168,11 @@ namespace TheLastBreath {
         }
 
         // WEAPON DRAW/SHEATHE EVENTS
-        else if (eventName == "weaponSheathe" || eventName == "weaponDraw") {
-            logger::debug("Weapon state changed - clearing slowdowns");
+        else if (eventName == "WeaponSheathe" || eventName == "weaponSheathe" || eventName == "weaponDraw" || eventName == "WeaponDraw") {
 
             // Clear slowdowns
             if (slowMgr->IsActorSlowed(actor)) {
+                logger::debug("Weapon state changed - clearing slowdowns");
                 slowMgr->ClearAllSlowdowns(actor);
             }
         }
@@ -170,6 +190,13 @@ namespace TheLastBreath {
                     logger::debug("Jump stamina cost: {}", cost);
                 } 
             } 
+        }
+
+
+        static int cleanupCounter = 0;
+        if (++cleanupCounter >= 100) {
+            TheLastBreath::SlowMotionManager::GetSingleton()->CleanupInactiveStates();
+            cleanupCounter = 0;
         }
 
         return RE::BSEventNotifyControl::kContinue;
@@ -207,13 +234,9 @@ namespace TheLastBreath {
             return;
         }
 
-        // Only apply slowdown if not already slowed by bow/crossbow
-        auto slowMgr = SlowMotionManager::GetSingleton();
-        if (!slowMgr->IsActorSlowedByType(actor, SlowType::Bow) &&
-            !slowMgr->IsActorSlowedByType(actor, SlowType::Crossbow)) {
-            logger::debug("Applying {} slowdown (skill: {})", isCrossbow ? "crossbow" : "bow", archerySkill);
-            slowMgr->ApplySlowdown(actor, type, archerySkill);
-        }
+        logger::debug("Applying {} slowdown (skill: {})", isCrossbow ? "crossbow" : "bow", archerySkill);
+        SlowMotionManager::GetSingleton()->ApplySlowdown(actor, type, archerySkill);
+
     }
 
     void AnimationEventHandler::OnBeginCastLeft(RE::Actor* actor) {

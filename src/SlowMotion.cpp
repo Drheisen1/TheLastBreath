@@ -1,4 +1,4 @@
-#include "TheLastBreath/SlowMotion.h"
+﻿#include "TheLastBreath/SlowMotion.h"
 #include "TheLastBreath/Config.h"
 
 namespace TheLastBreath {
@@ -17,15 +17,27 @@ namespace TheLastBreath {
         auto formID = actor->GetFormID();
         auto& state = actorStates[formID];
 
-        // Store original speed if this is first slowdown
+        // Only capture delta if this is the FIRST slowdown
         if (!IsActorSlowed(actor)) {
-            state.originalSpeedMult = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
-            logger::debug("Stored original speed: {}", state.originalSpeedMult);
+            float currentSpeed = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
+
+            // SAFEGUARD: Reject obviously corrupted speeds
+            if (currentSpeed < 50.0f) {
+                logger::warn("Detected corrupted speed ({}) - using base 100", currentSpeed);
+                state.baseSpeedDelta = 0.0f;
+            }
+            else {
+                state.baseSpeedDelta = currentSpeed - 100.0f;
+                logger::debug("Captured speed delta: {} (current speed: {})", state.baseSpeedDelta, currentSpeed);
+            }
+        }
+        else {
+            // Already slowed - keep existing delta, DON'T recapture
+            logger::debug("Already slowed, keeping cached delta: {}", state.baseSpeedDelta);
         }
 
         logger::debug("ApplySlowdown: type={}, skillLevel={}", static_cast<int>(type), skillLevel);
 
-        // Update state
         switch (type) {
         case SlowType::Bow:
         case SlowType::Crossbow:
@@ -33,15 +45,12 @@ namespace TheLastBreath {
             break;
         case SlowType::CastLeft:
             state.castLeftActive = true;
-            state.lastCastTime = std::chrono::steady_clock::now();
             break;
         case SlowType::CastRight:
             state.castRightActive = true;
-            state.lastCastTime = std::chrono::steady_clock::now();
             break;
         }
 
-        // Check for dual casting befdsre calculating multiplier
         SlowType typeToUse = type;
         if (state.castLeftActive && state.castRightActive) {
             state.dualCastActive = true;
@@ -49,18 +58,16 @@ namespace TheLastBreath {
             logger::debug("Dual casting detected!");
         }
 
-        // Calculate multiplier
         float multiplier = CalculateSpeedMultiplier(skillLevel, typeToUse);
-        logger::debug("Calculated multiplier: {}", multiplier);
+        float targetSpeed = (100.0f * multiplier) + state.baseSpeedDelta;
+        float currentSpeed = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
+        float speedChange = targetSpeed - currentSpeed;
 
-        // Apply multipleir relative to original speed
-        float newSpeed = state.originalSpeedMult * multiplier;
-        actor->AsActorValueOwner()->SetActorValue(RE::ActorValue::kSpeedMult, newSpeed);
-        logger::debug("Set SpeedMult to {} (original {} * {})", newSpeed, state.originalSpeedMult, multiplier);
+        actor->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,
+            RE::ActorValue::kSpeedMult, speedChange);
+        logger::debug("Applied {} speed change (from {} to {})", speedChange, currentSpeed, targetSpeed);
 
-        // Force refresh
-        actor->AsActorValueOwner()->ModActorValue(RE::ActorValue::kCarryWeight, 0.01f);
-        actor->AsActorValueOwner()->ModActorValue(RE::ActorValue::kCarryWeight, -0.01f);
+        state.expectedSpeed = targetSpeed;
     }
 
     void SlowMotionManager::RemoveSlowdown(RE::Actor* actor, SlowType type) {
@@ -72,7 +79,6 @@ namespace TheLastBreath {
 
         auto& state = it->second;
 
-        // Update state flags
         switch (type) {
         case SlowType::Bow:
         case SlowType::Crossbow:
@@ -89,16 +95,121 @@ namespace TheLastBreath {
             break;
         }
 
-        // Reset dual cast if either hand stops
         if (!state.castLeftActive || !state.castRightActive) {
             state.dualCastActive = false;
         }
 
-        // If no slowdowns active, restore original speed
         if (!IsActorSlowed(actor)) {
-            actor->AsActorValueOwner()->SetActorValue(RE::ActorValue::kSpeedMult, state.originalSpeedMult);
-            logger::debug("Restored original speed: {}", state.originalSpeedMult);
-            actorStates.erase(it);
+            float targetSpeed = 100.0f + state.baseSpeedDelta;
+            float currentSpeed = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
+            float speedChange = targetSpeed - currentSpeed;
+
+            actor->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,
+                RE::ActorValue::kSpeedMult, speedChange);
+            logger::debug("Restored speed by {} (from {} to {})", speedChange, currentSpeed, targetSpeed);
+
+            // DON'T erase! Mark timestamp instead
+            state.expectedSpeed = targetSpeed;
+            state.lastCastTime = std::chrono::steady_clock::now();
+            // actorStates.erase(it);  <-- REMOVE THIS LINE
+        }
+        else {
+            SlowType activeType;
+            float skillLevel = 0.0f;
+
+            if (state.bowSlowActive) {
+                activeType = SlowType::Bow;
+                skillLevel = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kArchery);
+            }
+            else if (state.dualCastActive) {
+                activeType = SlowType::DualCast;
+                auto spell = actor->GetActorRuntimeData().selectedSpells[RE::Actor::SlotTypes::kLeftHand];
+                if (!spell) spell = actor->GetActorRuntimeData().selectedSpells[RE::Actor::SlotTypes::kRightHand];
+                if (spell) {
+                    auto spellItem = spell->As<RE::SpellItem>();
+                    if (spellItem) {
+                        auto school = spellItem->GetAssociatedSkill();
+                        skillLevel = (school != RE::ActorValue::kNone)
+                            ? actor->AsActorValueOwner()->GetActorValue(school) : 50.0f;
+                    }
+                }
+            }
+            else if (state.castLeftActive) {
+                activeType = SlowType::CastLeft;
+                auto spell = actor->GetActorRuntimeData().selectedSpells[RE::Actor::SlotTypes::kLeftHand];
+                if (spell) {
+                    auto spellItem = spell->As<RE::SpellItem>();
+                    if (spellItem) {
+                        auto school = spellItem->GetAssociatedSkill();
+                        skillLevel = (school != RE::ActorValue::kNone)
+                            ? actor->AsActorValueOwner()->GetActorValue(school) : 50.0f;
+                    }
+                }
+            }
+            else if (state.castRightActive) {
+                activeType = SlowType::CastRight;
+                auto spell = actor->GetActorRuntimeData().selectedSpells[RE::Actor::SlotTypes::kRightHand];
+                if (spell) {
+                    auto spellItem = spell->As<RE::SpellItem>();
+                    if (spellItem) {
+                        auto school = spellItem->GetAssociatedSkill();
+                        skillLevel = (school != RE::ActorValue::kNone)
+                            ? actor->AsActorValueOwner()->GetActorValue(school) : 50.0f;
+                    }
+                }
+            }
+
+            float multiplier = CalculateSpeedMultiplier(skillLevel, activeType);
+            float targetSpeed = (100.0f * multiplier) + state.baseSpeedDelta;
+            float currentSpeed = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
+            float speedChange = targetSpeed - currentSpeed;
+
+            actor->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,
+                RE::ActorValue::kSpeedMult, speedChange);
+            logger::debug("Recalculated: changed speed by {} (from {} to {})", speedChange, currentSpeed, targetSpeed);
+        }
+    }
+
+    void SlowMotionManager::CleanupInactiveStates() {
+        auto now = std::chrono::steady_clock::now();
+
+        for (auto it = actorStates.begin(); it != actorStates.end();) {
+            auto formID = it->first;
+            auto& state = it->second;
+            auto actor = RE::TESForm::LookupByID<RE::Actor>(formID);
+
+            // Only check states where NO slowdowns are active
+            if (!state.bowSlowActive && !state.castLeftActive &&
+                !state.castRightActive && !state.dualCastActive) {
+
+                bool shouldClear = false;
+
+                // Check 1: Idle for 3+ seconds
+                auto idleSeconds = std::chrono::duration_cast<std::chrono::seconds>(
+                    now - state.lastCastTime).count();
+                if (idleSeconds >= 3) {
+                    shouldClear = true;
+                }
+
+                // Check 2: External speed change detected
+                if (actor) {
+                    float actualSpeed = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
+                    float speedDiff = std::abs(actualSpeed - state.expectedSpeed);
+
+                    // If speed changed by more than 0.1, something external modified it
+                    if (speedDiff > 0.1f) {
+                        logger::debug("External speed change detected (expected: {}, actual: {}) - clearing delta",
+                            state.expectedSpeed, actualSpeed);
+                        shouldClear = true;
+                    }
+                }
+
+                if (shouldClear) {
+                    it = actorStates.erase(it);
+                    continue;
+                }
+            }
+            ++it;
         }
     }
 
@@ -109,16 +220,26 @@ namespace TheLastBreath {
         auto it = actorStates.find(formID);
         if (it == actorStates.end()) return;
 
-        // Restore original speed directly
-        actor->AsActorValueOwner()->SetActorValue(RE::ActorValue::kSpeedMult, it->second.originalSpeedMult);
-        logger::debug("Cleared all slowdowns for actor, restored speed to {}", it->second.originalSpeedMult);
+        float targetSpeed = 100.0f + it->second.baseSpeedDelta;
+        float currentSpeed = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
+        float speedChange = targetSpeed - currentSpeed;
+
+        actor->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,
+            RE::ActorValue::kSpeedMult, speedChange);
+        logger::debug("Cleared all: changed speed by {} (from {} to {})", speedChange, currentSpeed, targetSpeed);
+
         actorStates.erase(it);
     }
 
     void SlowMotionManager::ClearAll() {
         for (auto& [formID, state] : actorStates) {
             if (auto actor = RE::TESForm::LookupByID<RE::Actor>(formID)) {
-                actor->AsActorValueOwner()->SetActorValue(RE::ActorValue::kSpeedMult, state.originalSpeedMult);
+                float targetSpeed = 100.0f + state.baseSpeedDelta;
+                float currentSpeed = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
+                float speedChange = targetSpeed - currentSpeed;
+
+                actor->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,
+                    RE::ActorValue::kSpeedMult, speedChange);
             }
         }
         actorStates.clear();
@@ -137,14 +258,12 @@ namespace TheLastBreath {
     float SlowMotionManager::CalculateSpeedMultiplier(float skillLevel, SlowType type) {
         auto config = Config::GetSingleton();
 
-        // Determine tier (Novice/Apprentice/Expert/Master)
         int tier = 0;
         if (skillLevel <= 25) tier = 0;
         else if (skillLevel <= 50) tier = 1;
         else if (skillLevel <= 75) tier = 2;
         else tier = 3;
 
-        // Get multiplier from config
         float mult = 1.0f;
         switch (type) {
         case SlowType::Bow:
@@ -161,31 +280,6 @@ namespace TheLastBreath {
             mult = config->dualCastMultipliers[tier];
             break;
         }
-
         return mult;
     }
-
-
-    bool SlowMotionManager::IsActorSlowedByType(RE::Actor* actor, SlowType type) {
-        if (!actor) return false;
-
-        auto it = actorStates.find(actor->GetFormID());
-        if (it == actorStates.end()) return false;
-
-        auto& state = it->second;
-        switch (type) {
-        case SlowType::Bow:
-        case SlowType::Crossbow:
-            return state.bowSlowActive;
-        case SlowType::CastLeft:
-            return state.castLeftActive;
-        case SlowType::CastRight:
-            return state.castRightActive;
-        case SlowType::DualCast:
-            return state.dualCastActive;
-        default:
-            return false;
-        }
-    }
-
 }
