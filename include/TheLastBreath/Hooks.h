@@ -2,6 +2,6 @@
 
 namespace TheLastBreath {
     namespace Hooks {
-        void Install();        // Attack stamina cost hook
+        void Install();           // Attack stamina cost hook
     }
 }

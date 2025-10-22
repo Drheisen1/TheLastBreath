@@ -15,7 +15,10 @@ namespace TheLastBreath {
         }
 
         auto formID = actor->GetFormID();
-        auto& state = actorStates[formID];
+
+        // OPTIMIZATION FIX: Use try_emplace instead of operator[] to avoid double hash lookup
+        auto [it, inserted] = actorStates.try_emplace(formID);
+        auto& state = it->second;
 
         // Only capture delta if this is the FIRST slowdown
         if (!IsActorSlowed(actor)) {
@@ -38,6 +41,7 @@ namespace TheLastBreath {
 
         logger::debug("ApplySlowdown: type={}, skillLevel={}", static_cast<int>(type), skillLevel);
 
+        // Update state flags BEFORE checking dual cast
         switch (type) {
         case SlowType::Bow:
         case SlowType::Crossbow:
@@ -49,8 +53,14 @@ namespace TheLastBreath {
         case SlowType::CastRight:
             state.castRightActive = true;
             break;
+        case SlowType::DualCast:
+            // Should not be called directly, but handle it safely
+            state.dualCastActive = true;
+            break;
         }
 
+        // BUG FIX: Detect dual cast AFTER both flags are updated
+        // This ensures that when CastRight is called after CastLeft, dual cast is properly detected
         SlowType typeToUse = type;
         if (state.castLeftActive && state.castRightActive) {
             state.dualCastActive = true;
@@ -95,11 +105,13 @@ namespace TheLastBreath {
             break;
         }
 
+        // Clear dual cast if either hand stops
         if (!state.castLeftActive || !state.castRightActive) {
             state.dualCastActive = false;
         }
 
         if (!IsActorSlowed(actor)) {
+            // No more slowdowns active - restore to base speed
             float targetSpeed = 100.0f + state.baseSpeedDelta;
             float currentSpeed = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kSpeedMult);
             float speedChange = targetSpeed - currentSpeed;
@@ -108,12 +120,12 @@ namespace TheLastBreath {
                 RE::ActorValue::kSpeedMult, speedChange);
             logger::debug("Restored speed by {} (from {} to {})", speedChange, currentSpeed, targetSpeed);
 
-            // DON'T erase! Mark timestamp instead
+            // Mark timestamp for cleanup
             state.expectedSpeed = targetSpeed;
             state.lastCastTime = std::chrono::steady_clock::now();
-            // actorStates.erase(it);  <-- REMOVE THIS LINE
         }
         else {
+            // Still have active slowdowns - recalculate for remaining type
             SlowType activeType;
             float skillLevel = 0.0f;
 
@@ -167,6 +179,8 @@ namespace TheLastBreath {
             actor->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,
                 RE::ActorValue::kSpeedMult, speedChange);
             logger::debug("Recalculated: changed speed by {} (from {} to {})", speedChange, currentSpeed, targetSpeed);
+
+            state.expectedSpeed = targetSpeed;
         }
     }
 
@@ -259,9 +273,9 @@ namespace TheLastBreath {
         auto config = Config::GetSingleton();
 
         int tier = 0;
-        if (skillLevel <= 25) tier = 0;
-        else if (skillLevel <= 50) tier = 1;
-        else if (skillLevel <= 75) tier = 2;
+        if (skillLevel <= 25.0f) tier = 0;
+        else if (skillLevel <= 50.0f) tier = 1;
+        else if (skillLevel <= 75.0f) tier = 2;
         else tier = 3;
 
         float mult = 1.0f;

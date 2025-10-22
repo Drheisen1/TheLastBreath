@@ -19,8 +19,10 @@ namespace TheLastBreath {
 
         struct ExhaustionState {
             bool isExhausted = false;
-            //bool jumpDisabled = false;
-            //float originalJumpHeight = 76.0f;
+            // Store ORIGINAL values before exhaustion to avoid corruption
+            float originalSpeed = 0.0f;
+            float originalAttackDamage = 0.0f;
+            float originalDamageResist = 0.0f;
         };
 
         std::unordered_map<RE::FormID, ExhaustionState> actorStates;

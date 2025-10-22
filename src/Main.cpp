@@ -10,12 +10,10 @@
 #include "TheLastBreath/CombatHandler.h"
 #include "TheLastBreath/Data.h"
 #include "TheLastBreath/EldenCounterCompat.h"
-#include <atomic>
-#include <thread>
+#include "TheLastBreath/ActorStateManager.h"
 
 using namespace SKSE;
 using namespace SKSE::log;
-using namespace std::chrono_literals;
 
 namespace {
     constexpr const char* PLUGIN_NAME = "TheLastBreath";
@@ -45,32 +43,55 @@ namespace {
     std::atomic<bool> g_registered = false;
     std::atomic<bool> g_gameLoaded = false;
 
-    static std::atomic_bool g_rangedWorkerRunning{ false };
-    static std::thread      g_rangedWorker;
 
-    static void StartRangedStaminaWorker()
-    {
-        if (g_rangedWorkerRunning.exchange(true)) return;
+    class UpdateHandler : public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
+    public:
+        static UpdateHandler* GetSingleton() {
+            static UpdateHandler singleton;
+            return &singleton;
+        }
 
-        g_rangedWorker = std::thread([]() {
-            while (g_rangedWorkerRunning.load(std::memory_order_relaxed)) {
-                SKSE::GetTaskInterface()->AddTask([]() {
-                    TheLastBreath::RangedStaminaHandler::GetSingleton()->Update();
-                    TheLastBreath::ExhaustionHandler::GetSingleton()->Update();
-                    TheLastBreath::TimedBlockHandler::GetSingleton()->Update();
-                    TheLastBreath::CombatHandler::GetSingleton()->Update();
-                    TheLastBreath::BlockEffectsHandler::GetSingleton()->Update();
-                    });
-                std::this_thread::sleep_for(100ms);
+        static void Register() {
+            auto ui = RE::UI::GetSingleton();
+            if (ui) {
+                ui->AddEventSink(GetSingleton());
+                logger::debug("UpdateHandler registered");
             }
-            });
-    }
+        }
 
-    static void StopRangedStaminaWorker()
-    {
-        if (!g_rangedWorkerRunning.exchange(false)) return;
-        if (g_rangedWorker.joinable()) g_rangedWorker.join();
-    }
+        RE::BSEventNotifyControl ProcessEvent(
+            const RE::MenuOpenCloseEvent* a_event,
+            RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override
+        {
+            // CRITICAL: Don't update if game is paused
+            if (RE::UI::GetSingleton()->GameIsPaused()) {
+                return RE::BSEventNotifyControl::kContinue;
+            }
+
+            // CRITICAL: Don't update during hit processing
+            auto player = RE::PlayerCharacter::GetSingleton();
+            if (player) {
+                auto process = player->GetActorRuntimeData().currentProcess;
+                if (process && process->middleHigh && process->middleHigh->lastHitData) {
+                    // Skip update if player was just hit (data still being processed)
+                    return RE::BSEventNotifyControl::kContinue;
+                }
+            }
+
+            // Run updates
+            // This is lightweight and runs on game thread
+            TheLastBreath::RangedStaminaHandler::GetSingleton()->Update();
+            TheLastBreath::ExhaustionHandler::GetSingleton()->Update();
+            TheLastBreath::TimedBlockHandler::GetSingleton()->Update();
+            TheLastBreath::CombatHandler::GetSingleton()->Update();
+            TheLastBreath::BlockEffectsHandler::GetSingleton()->Update();
+
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+    private:
+        UpdateHandler() = default;
+    };
 
     class InputEventHandler : public RE::BSTEventSink<RE::InputEvent*> {
     public:
@@ -136,6 +157,7 @@ namespace {
                 }
             }
 
+
             // Original animation registration logic
             if (g_registered.load()) {
                 return RE::BSEventNotifyControl::kContinue;
@@ -161,8 +183,6 @@ namespace {
             else {
                 g_registered.store(false);
             }
-
-            TheLastBreath::RangedStaminaHandler::GetSingleton()->Update();
 
             return RE::BSEventNotifyControl::kContinue;
         }
@@ -199,6 +219,8 @@ namespace {
         {
             logger::debug("kDataLoaded message received");
 
+            UpdateHandler::Register();
+
             // Load all game data (sounds, FX, etc.)
             TheLastBreath::Data::LoadData();
 
@@ -232,7 +254,7 @@ namespace {
                 logger::error("Failed to get UI singleton");
             }
 
-			// Initialize Elden Counter compatibility
+            // Initialize Elden Counter compatibility
             TheLastBreath::EldenCounterCompat::GetSingleton()->Initialize();
 
             break;
@@ -246,10 +268,9 @@ namespace {
             g_registered.store(false);
             g_gameLoaded.store(true);
 
-            StartRangedStaminaWorker();
-
             TheLastBreath::SlowMotionManager::GetSingleton()->ClearAll();
             TheLastBreath::ExhaustionHandler::GetSingleton()->ClearAll();
+            TheLastBreath::ActorStateManager::GetSingleton()->ClearAll();
             logger::debug("Ready - animation events will register on first player input");
 
             break;
@@ -258,7 +279,7 @@ namespace {
         case SKSE::MessagingInterface::kPreLoadGame:
         case SKSE::MessagingInterface::kDeleteGame:
         {
-            StopRangedStaminaWorker();
+            // Nothing special needed - updates will naturally stop being called
             break;
         }
 

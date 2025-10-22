@@ -20,7 +20,10 @@ namespace TheLastBreath {
         }
 
         auto formID = actor->GetFormID();
-        auto& state = actorStates[formID];
+
+        // OPTIMIZATION: Use try_emplace instead of operator[]
+        auto [it, inserted] = actorStates.try_emplace(formID);
+        auto& state = it->second;
 
         if (!state.isDrawn) {
             state.isDrawn = true;

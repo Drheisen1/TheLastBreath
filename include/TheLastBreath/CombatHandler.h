@@ -32,6 +32,13 @@ namespace TheLastBreath {
         };
 
         std::unordered_map<RE::FormID, BlockState> actorBlockStates;
+
+        // REFACTORED: Broken down from monolithic OnActorHit
+        bool ShouldProcessHit(RE::Actor* victim);
+        float CalculateBaseStaminaLoss(RE::Actor* victim);
+        void ProcessTimedBlock(RE::Actor* victim, RE::Actor* aggressor, float actualDamage);
+        void ProcessRegularBlock(RE::Actor* victim, float baseLoss);
+        void ProcessUnblockedHit(RE::Actor* victim, float baseLoss);
     };
 
 }

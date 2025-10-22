@@ -64,7 +64,10 @@ namespace TheLastBreath {
 
         auto config = Config::GetSingleton();
         auto formID = blocker->GetFormID();
-        auto& state = actorStates[formID];
+
+        // OPTIMIZATION: Use try_emplace instead of operator[]
+        auto [it, inserted] = actorStates.try_emplace(formID);
+        auto& state = it->second;
 
         // Update last parry time
         auto now = std::chrono::steady_clock::now();
@@ -101,6 +104,7 @@ namespace TheLastBreath {
 
         // Play sound
         PlayBlockSound(blocker, equipType, parryLevel);
+
         // Apply stagger to aggressor
         if (aggressor && aggressor->Get3D()) {
             if (isPerfectParry) {

@@ -4,9 +4,48 @@
 #include "TheLastBreath/TimedBlockHandler.h"
 #include "TheLastBreath/Config.h"
 #include "TheLastBreath/EldenCounterCompat.h"
+#include <unordered_map>
 
 
 namespace TheLastBreath {
+
+    // OPTIMIZATION: Event type enum for fast switch instead of string comparisons
+    enum class AnimEventType {
+        Unknown,
+        BowDrawn,
+        BowRelease,
+        StartCustomA,
+        HKS_TriggerA,
+        BeginCastLeft,
+        BeginCastRight,
+        CastStop,
+        CastOKStop,
+        InterruptCast,
+        AttackStop,
+        WeaponSheathe,
+        WeaponDraw,
+        JumpUp,
+    };
+
+    // OPTIMIZATION: Hash map for O(1) event lookup instead of O(n) string comparisons
+    static const std::unordered_map<std::string_view, AnimEventType> EVENT_LOOKUP = {
+        {"BowDrawn", AnimEventType::BowDrawn},
+        {"BowRelease", AnimEventType::BowRelease},
+        {"bowRelease", AnimEventType::BowRelease},
+        {"StartCustomA", AnimEventType::StartCustomA},
+        {"HKS_TriggerA", AnimEventType::HKS_TriggerA},
+        {"BeginCastLeft", AnimEventType::BeginCastLeft},
+        {"BeginCastRight", AnimEventType::BeginCastRight},
+        {"CastStop", AnimEventType::CastStop},
+        {"CastOKStop", AnimEventType::CastOKStop},
+        {"InterruptCast", AnimEventType::InterruptCast},
+        {"attackStop", AnimEventType::AttackStop},
+        {"WeaponSheathe", AnimEventType::WeaponSheathe},
+        {"weaponSheathe", AnimEventType::WeaponSheathe},
+        {"weaponDraw", AnimEventType::WeaponDraw},
+        {"WeaponDraw", AnimEventType::WeaponDraw},
+        {"JumpUp", AnimEventType::JumpUp},
+    };
 
     AnimationEventHandler* AnimationEventHandler::GetSingleton() {
         static AnimationEventHandler singleton;
@@ -26,39 +65,48 @@ namespace TheLastBreath {
             return RE::BSEventNotifyControl::kContinue;
         }
 
-        // Handle player
         bool isPlayer = actor->IsPlayerRef();
 
         // Handle NPCs
         if (!isPlayer) {
             auto config = Config::GetSingleton();
 
-            // Check if NPC support is enabled
             if (!config->applyToNPCs) {
                 return RE::BSEventNotifyControl::kContinue;
             }
 
-            // Check if NPC is in combat
             if (!actor->IsInCombat()) {
                 return RE::BSEventNotifyControl::kContinue;
             }
 
-            // NPC passed all checks, process the event
             logger::trace("Processing NPC event: {}", actor->GetName());
         }
 
         std::string_view eventName = a_event->tag;
-        auto slowMgr = SlowMotionManager::GetSingleton();
-        auto rangedHandler = RangedStaminaHandler::GetSingleton();
+
+        // OPTIMIZATION: Single hash lookup instead of multiple string comparisons
+        auto eventIt = EVENT_LOOKUP.find(eventName);
+        if (eventIt == EVENT_LOOKUP.end()) {
+            // Unknown event, ignore
+            return RE::BSEventNotifyControl::kContinue;
+        }
 
         logger::trace("Animation event: '{}' from {}", eventName, isPlayer ? "Player" : actor->GetName());
 
-        // BOW EVENTS
-        if (eventName == "BowDrawn") {
+        // Cache singleton pointers (minor optimization)
+        auto slowMgr = SlowMotionManager::GetSingleton();
+        auto rangedHandler = RangedStaminaHandler::GetSingleton();
+        auto config = Config::GetSingleton();
+
+        // OPTIMIZATION: Switch on enum instead of string comparisons
+        switch (eventIt->second) {
+        case AnimEventType::BowDrawn:
             logger::debug("Bow drawn event");
             OnBowDrawn(actor);
-        }
-        else if (eventName == "BowRelease" || eventName == "bowRelease") {
+            break;
+
+        case AnimEventType::BowRelease:
+        {
             // only process if we're actually tracking OR if bow is equipped
             bool hasBowEquipped = false;
             if (const auto obj = actor->GetEquippedObject(false)) {
@@ -69,24 +117,19 @@ namespace TheLastBreath {
             }
 
             if (!hasBowEquipped) {
-                // ignore stale animation event
                 return RE::BSEventNotifyControl::kContinue;
             }
 
             logger::debug("Bow release event");
 
-            // apply release cost 
             rangedHandler->OnRangedRelease(actor);
-
-            // Clear slowdowns
             slowMgr->RemoveSlowdown(actor, SlowType::Bow);
             slowMgr->RemoveSlowdown(actor, SlowType::Crossbow);
+            break;
         }
 
-        // Rapid Combo START event (preventive check)
-        else if (eventName == "StartCustomA") {
-            auto config = Config::GetSingleton();
-
+        case AnimEventType::StartCustomA:
+        {
             bool isRanged = false;
             if (const auto obj = actor->GetEquippedObject(false)) {
                 if (const auto weap = obj->As<RE::TESObjectWEAP>()) {
@@ -94,14 +137,12 @@ namespace TheLastBreath {
                     isRanged = (wt == RE::WEAPON_TYPE::kBow || wt == RE::WEAPON_TYPE::kCrossbow);
                 }
             }
-
+            break;
         }
 
-        // Rapid Combo SHOT event (cost + safety check)
-        else if (eventName == "HKS_TriggerA") {
+        case AnimEventType::HKS_TriggerA:
+        {
             logger::debug("HKS_TriggerA event (Rapid Combo)");
-
-            auto config = Config::GetSingleton();
 
             if (!config->enableStaminaManagement || !config->enableRangedStaminaCost) {
                 return RE::BSEventNotifyControl::kContinue;
@@ -119,8 +160,6 @@ namespace TheLastBreath {
                 return RE::BSEventNotifyControl::kContinue;
             }
 
-
-            // Deduct stamina cost
             if (config->enableRapidComboStaminaCost) {
                 const float cost = config->rapidComboStaminaCost;
                 if (cost > 0.0f) {
@@ -131,55 +170,48 @@ namespace TheLastBreath {
                     logger::debug("Rapid Combo stamina cost: {}", cost);
                 }
             }
+            break;
         }
 
-        // CASTING EVENTS
-        else if (eventName == "BeginCastLeft") {
+        case AnimEventType::BeginCastLeft:
             logger::debug("BeginCastLeft event");
             OnBeginCastLeft(actor);
-        }
-        else if (eventName == "BeginCastRight") {
+            break;
+
+        case AnimEventType::BeginCastRight:
             logger::debug("BeginCastRight event");
             OnBeginCastRight(actor);
-        }
+            break;
 
-        // Add CastStop event
-        else if (eventName == "CastStop") {
+        case AnimEventType::CastStop:
             logger::debug("CastStop event");
             OnCastRelease(actor);
-        }
+            break;
 
-        // Additional cast stop events
-        else if (eventName == "CastOKStop" || eventName == "InterruptCast") {
-            // Only process if actor is actually slowed
+        case AnimEventType::CastOKStop:
+        case AnimEventType::InterruptCast:
             if (slowMgr->IsActorSlowed(actor)) {
                 logger::debug("Cast interrupted: {}", eventName);
                 OnCastRelease(actor);
             }
-        }
+            break;
 
-        // GENERIC CLEANUP
-        else if (eventName == "attackStop") {
-            // Only clear slowdowns if we're actually slowed
+        case AnimEventType::AttackStop:
             if (slowMgr->IsActorSlowed(actor)) {
                 logger::debug("attackStop while slowed - clearing slowdowns");
                 slowMgr->ClearAllSlowdowns(actor);
             }
-        }
+            break;
 
-        // WEAPON DRAW/SHEATHE EVENTS
-        else if (eventName == "WeaponSheathe" || eventName == "weaponSheathe" || eventName == "weaponDraw" || eventName == "WeaponDraw") {
-
-            // Clear slowdowns
+        case AnimEventType::WeaponSheathe:
+        case AnimEventType::WeaponDraw:
             if (slowMgr->IsActorSlowed(actor)) {
                 logger::debug("Weapon state changed - clearing slowdowns");
                 slowMgr->ClearAllSlowdowns(actor);
             }
-        }
+            break;
 
-        // JUMP STAMINA COST
-        else if (eventName == "JumpUp") {
-            auto config = Config::GetSingleton();
+        case AnimEventType::JumpUp:
             if (config->enableStaminaManagement && config->enableJumpStaminaCost) {
                 const float cost = config->jumpStaminaCost;
                 if (cost > 0.0f) {
@@ -188,14 +220,18 @@ namespace TheLastBreath {
                         RE::ActorValue::kStamina,
                         -cost);
                     logger::debug("Jump stamina cost: {}", cost);
-                } 
-            } 
+                }
+            }
+            break;
+
+        default:
+            break;
         }
 
-
+        // Periodic cleanup of inactive slowdown states
         static int cleanupCounter = 0;
         if (++cleanupCounter >= 100) {
-            TheLastBreath::SlowMotionManager::GetSingleton()->CleanupInactiveStates();
+            slowMgr->CleanupInactiveStates();
             cleanupCounter = 0;
         }
 
@@ -206,12 +242,10 @@ namespace TheLastBreath {
         auto config = Config::GetSingleton();
         auto rangedHandler = RangedStaminaHandler::GetSingleton();
 
-        // Start stamina tracking (it has its own duplicate guard)
         rangedHandler->OnRangedDrawn(actor);
 
         float archerySkill = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kArchery);
 
-        // Determine weapon type
         auto equippedObject = actor->GetEquippedObject(false);
         bool isCrossbow = false;
 
@@ -224,7 +258,6 @@ namespace TheLastBreath {
 
         SlowType type = isCrossbow ? SlowType::Crossbow : SlowType::Bow;
 
-        // Check if this type is enabled
         if (isCrossbow && !config->enableCrossbowDebuff) {
             logger::debug("Crossbow debuff disabled in config");
             return;
@@ -236,7 +269,6 @@ namespace TheLastBreath {
 
         logger::debug("Applying {} slowdown (skill: {})", isCrossbow ? "crossbow" : "bow", archerySkill);
         SlowMotionManager::GetSingleton()->ApplySlowdown(actor, type, archerySkill);
-
     }
 
     void AnimationEventHandler::OnBeginCastLeft(RE::Actor* actor) {
@@ -251,7 +283,6 @@ namespace TheLastBreath {
             return;
         }
 
-        // Check if spell modifies SpeedMult - if so, skip slowdown
         if (SpellModifiesSpeed(leftSpell)) {
             logger::debug("Left spell modifies speed - skipping slowdown");
             return;
@@ -274,7 +305,6 @@ namespace TheLastBreath {
             return;
         }
 
-        // Check if spell modifies SpeedMult - if so, skip slowdown
         if (SpellModifiesSpeed(rightSpell)) {
             logger::debug("Right spell modifies speed - skipping slowdown");
             return;
@@ -286,7 +316,6 @@ namespace TheLastBreath {
     }
 
     void AnimationEventHandler::OnCastRelease(RE::Actor* actor) {
-        // remove all casting slowdowns when cast stops
         auto slowMgr = SlowMotionManager::GetSingleton();
         slowMgr->RemoveSlowdown(actor, SlowType::CastLeft);
         slowMgr->RemoveSlowdown(actor, SlowType::CastRight);
@@ -301,7 +330,6 @@ namespace TheLastBreath {
     float AnimationEventHandler::GetMagicSkillLevel(RE::Actor* actor, RE::MagicItem* spell) {
         if (!spell) return 0.0f;
 
-        // try to cast to SpellItem
         auto spellItem = spell->As<RE::SpellItem>();
         if (!spellItem) {
             logger::warn("Could not cast spell to SpellItem");
@@ -331,10 +359,8 @@ namespace TheLastBreath {
         auto spellItem = spell->As<RE::SpellItem>();
         if (!spellItem) return false;
 
-        // Check all magic effects in the spell
         for (auto effect : spellItem->effects) {
             if (effect && effect->baseEffect) {
-                // Check if effect modifies SpeedMult actor value
                 if (effect->baseEffect->data.primaryAV == RE::ActorValue::kSpeedMult) {
                     return true;
                 }
@@ -343,5 +369,6 @@ namespace TheLastBreath {
 
         return false;
     }
+
 
 }

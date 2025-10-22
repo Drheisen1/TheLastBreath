@@ -9,7 +9,7 @@ namespace TheLastBreath {
         // ============================================
         // ATTACK STAMINA COST HOOK
         // ============================================
-        
+
         // Recursion guard
         static thread_local bool g_inCalculation = false;
 

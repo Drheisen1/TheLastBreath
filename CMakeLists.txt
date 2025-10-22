@@ -33,7 +33,7 @@ add_library(
     src/Data.cpp
     src/HitProcessor.cpp
     src/EldenCounterCompact.cpp
-)
+ "src/ActorStateManager.cpp")
 
 target_include_directories(
     ${PROJECT_NAME}

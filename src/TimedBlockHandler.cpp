@@ -11,7 +11,10 @@ namespace TheLastBreath {
         if (!config->enableTimedBlocking) return;
 
         auto formID = actor->GetFormID();
-        auto& state = actorStates[formID];
+
+        // OPTIMIZATION: Use try_emplace instead of operator[]
+        auto [it, inserted] = actorStates.try_emplace(formID);
+        auto& state = it->second;
 
         state.isButtonPressed = true;
         state.windowActive = false;  // Not active yet - waiting for animation delay
@@ -112,11 +115,23 @@ namespace TheLastBreath {
             return BlockType::Regular;
         }
 
-        // Check if window is active (animation delay passed)
-        if (!state.windowActive) {
-            logger::debug("Block window not yet active (in animation delay) - regular block");
+        // ============================================
+        // CHECK ANIMATION DELAY DIRECTLY (don't rely on Update() flag)
+        // ============================================
+        auto now = std::chrono::steady_clock::now();
+        auto timeSincePress = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - state.buttonPressTime).count() / 1000.0f;
+
+        // Animation delay not passed yet
+        if (timeSincePress < config->timedBlockAnimationDelay) {
+            logger::debug("Block window not yet active - in animation delay ({:.3f}s / {:.3f}s)",
+                timeSincePress, config->timedBlockAnimationDelay);
             return BlockType::Regular;
         }
+
+        // Animation delay passed - now check if within parry window
+        // Calculate time since delay passed (for window duration check)
+        float timeInWindow = timeSincePress - config->timedBlockAnimationDelay;
 
         // ============================================
         // PROGRESSIVE WINDOW SYSTEM
@@ -138,24 +153,18 @@ namespace TheLastBreath {
         default: windowDuration = config->timedBlockWindow3; break;  // Fallback
         }
 
-        // Check if hit is within the selected window
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - state.windowStartTime).count();
-
-        float elapsedSeconds = static_cast<float>(elapsed) / 1000.0f;
-
-        if (elapsedSeconds <= windowDuration) {
+        // Check if hit is within the window
+        if (timeInWindow <= windowDuration) {
             logger::info("TIMED BLOCK! Parry {} window ({:.3f}s / {:.3f}s)",
                 nextParryLevel,
-                elapsedSeconds,
+                timeInWindow,
                 windowDuration);
             return BlockType::Timed;
         }
         else {
             logger::debug("Regular block - missed Parry {} window ({:.3f}s / {:.3f}s)",
                 nextParryLevel,
-                elapsedSeconds,
+                timeInWindow,
                 windowDuration);
             return BlockType::Regular;
         }

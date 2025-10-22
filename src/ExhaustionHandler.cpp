@@ -16,7 +16,10 @@ namespace TheLastBreath {
         if (!player) return;
 
         auto formID = player->GetFormID();
-        auto& state = actorStates[formID];
+
+        // OPTIMIZATION: Use try_emplace instead of operator[] to avoid double hash lookup
+        auto [it, inserted] = actorStates.try_emplace(formID);
+        auto& state = it->second;
 
         float currentStamina = player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kStamina);
 
@@ -37,7 +40,6 @@ namespace TheLastBreath {
                     currentStamina, config->exhaustionStaminaThreshold);
             }
         }
-
     }
 
     void ExhaustionHandler::ApplyExhaustion(RE::Actor* actor) {
@@ -45,20 +47,31 @@ namespace TheLastBreath {
 
         auto config = Config::GetSingleton();
         auto avOwner = actor->AsActorValueOwner();
+        auto formID = actor->GetFormID();
 
-        // Apply movement speed debuff
-        float currentSpeed = avOwner->GetActorValue(RE::ActorValue::kSpeedMult);
-        float newSpeed = currentSpeed * (1.0f - config->exhaustionMovementSpeedDebuff);
+        // Get state (should already exist from Update())
+        auto it = actorStates.find(formID);
+        if (it == actorStates.end()) {
+            logger::error("ApplyExhaustion called but state doesn't exist!");
+            return;
+        }
+        auto& state = it->second;
+
+        // BUG FIX: Store ORIGINAL values before modification
+        // This prevents corruption if actor gains other buffs while exhausted
+        state.originalSpeed = avOwner->GetActorValue(RE::ActorValue::kSpeedMult);
+        state.originalAttackDamage = avOwner->GetActorValue(RE::ActorValue::kAttackDamageMult);
+        state.originalDamageResist = avOwner->GetActorValue(RE::ActorValue::kDamageResist);
+
+        // Apply debuffs from stored originals
+        float newSpeed = state.originalSpeed * (1.0f - config->exhaustionMovementSpeedDebuff);
         avOwner->SetActorValue(RE::ActorValue::kSpeedMult, newSpeed);
 
-        // Apply attack damage debuff
-        float currentDamage = avOwner->GetActorValue(RE::ActorValue::kAttackDamageMult);
-        float newDamage = currentDamage * (1.0f - config->exhaustionAttackDamageDebuff);
+        float newDamage = state.originalAttackDamage * (1.0f - config->exhaustionAttackDamageDebuff);
         avOwner->SetActorValue(RE::ActorValue::kAttackDamageMult, newDamage);
 
-        // Apply damage received multiplier
-        avOwner->SetActorValue(RE::ActorValue::kDamageResist,
-            avOwner->GetActorValue(RE::ActorValue::kDamageResist) - (config->exhaustionDamageReceivedMult - 1.0f) * 100.0f);
+        float resistPenalty = (config->exhaustionDamageReceivedMult - 1.0f) * 100.0f;
+        avOwner->SetActorValue(RE::ActorValue::kDamageResist, state.originalDamageResist - resistPenalty);
 
         logger::trace("Applied exhaustion debuffs - Speed: {:.0f}%, AttackDmg: {:.0f}%, DmgTaken: {:.0f}%",
             (1.0f - config->exhaustionMovementSpeedDebuff) * 100.0f,
@@ -69,24 +82,24 @@ namespace TheLastBreath {
     void ExhaustionHandler::RemoveExhaustion(RE::Actor* actor) {
         if (!actor) return;
 
-        auto config = Config::GetSingleton();
         auto avOwner = actor->AsActorValueOwner();
+        auto formID = actor->GetFormID();
 
-        // Restore movement speed
-        float currentSpeed = avOwner->GetActorValue(RE::ActorValue::kSpeedMult);
-        float originalSpeed = currentSpeed / (1.0f - config->exhaustionMovementSpeedDebuff);
-        avOwner->SetActorValue(RE::ActorValue::kSpeedMult, originalSpeed);
+        // Get state
+        auto it = actorStates.find(formID);
+        if (it == actorStates.end()) {
+            logger::error("RemoveExhaustion called but state doesn't exist!");
+            return;
+        }
+        auto& state = it->second;
 
-        // Restore attack damage
-        float currentDamage = avOwner->GetActorValue(RE::ActorValue::kAttackDamageMult);
-        float originalDamage = currentDamage / (1.0f - config->exhaustionAttackDamageDebuff);
-        avOwner->SetActorValue(RE::ActorValue::kAttackDamageMult, originalDamage);
+        // BUG FIX: Restore ORIGINAL stored values instead of calculating
+        // This prevents corruption if actor gained other buffs while exhausted
+        avOwner->SetActorValue(RE::ActorValue::kSpeedMult, state.originalSpeed);
+        avOwner->SetActorValue(RE::ActorValue::kAttackDamageMult, state.originalAttackDamage);
+        avOwner->SetActorValue(RE::ActorValue::kDamageResist, state.originalDamageResist);
 
-        // Restore damage resistance
-        avOwner->SetActorValue(RE::ActorValue::kDamageResist,
-            avOwner->GetActorValue(RE::ActorValue::kDamageResist) + (config->exhaustionDamageReceivedMult - 1.0f) * 100.0f);
-
-        logger::trace("Removed exhaustion debuffs");
+        logger::trace("Removed exhaustion debuffs - restored original values");
     }
 
     void ExhaustionHandler::ClearAll() {
