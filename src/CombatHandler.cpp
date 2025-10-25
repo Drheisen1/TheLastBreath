@@ -29,6 +29,8 @@ namespace TheLastBreath {
 
         auto formID = actor->GetFormID();
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         // OPTIMIZATION: Use try_emplace instead of operator[]
         auto [it, inserted] = actorBlockStates.try_emplace(formID);
         auto& state = it->second;
@@ -44,6 +46,8 @@ namespace TheLastBreath {
     void CombatHandler::OnBlockStop(RE::Actor* actor) {
         if (!actor) return;
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         auto formID = actor->GetFormID();
         auto it = actorBlockStates.find(formID);
         if (it != actorBlockStates.end()) {
@@ -58,6 +62,8 @@ namespace TheLastBreath {
             return;
         }
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         auto now = std::chrono::steady_clock::now();
 
         // Handle block stamina drain
@@ -70,7 +76,7 @@ namespace TheLastBreath {
             }
 
             RE::Actor* actor = RE::TESForm::LookupByID<RE::Actor>(formID);
-            if (!actor) {
+            if (!actor || actor->IsDisabled() || actor->IsDeleted()) {
                 it = actorBlockStates.erase(it);
                 continue;
             }
@@ -130,7 +136,7 @@ namespace TheLastBreath {
         auto config = Config::GetSingleton();
 
         // ============================================
-        // TIMED BLOCK (Always runs if enabled, independent of stamina management)
+        // TIMED BLOCK
         // ============================================
         if (blockType == BlockType::Timed && config->enableTimedBlocking) {
             ProcessTimedBlock(victim, aggressor, actualDamage);
@@ -154,8 +160,6 @@ namespace TheLastBreath {
             ProcessUnblockedHit(victim, baseLoss);
         }
     }
-
-    // REFACTORED HELPER METHODS
 
     bool CombatHandler::ShouldProcessHit(RE::Actor* victim) {
         if (!victim) return false;
@@ -184,7 +188,7 @@ namespace TheLastBreath {
         BlockEffectsHandler::GetSingleton()->OnSuccessfulTimedBlock(victim, aggressor);
 
         // ============================================
-        // DAMAGE REDUCTION VIA HEAL-BACK (ACCURATE)
+        // DAMAGE REDUCTION VIA HEAL-BACK
         // ============================================
         if (config->timedBlockDamageReduction > 0.0f && actualDamage > 0.0f) {
             float damageToHealBack = actualDamage * config->timedBlockDamageReduction;
@@ -200,7 +204,7 @@ namespace TheLastBreath {
                 actualDamage);
         }
 
-        // Stamina handling for timed blocks (only if stamina management enabled)
+        // Stamina handling for timed blocks
         if (config->enableStaminaManagement) {
             float baseLoss = CalculateBaseStaminaLoss(victim);
 

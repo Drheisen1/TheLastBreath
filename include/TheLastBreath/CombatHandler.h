@@ -3,6 +3,7 @@
 #include "TheLastBreath/BlockEffectsHandler.h"
 #include <unordered_map>
 #include <chrono>
+#include <mutex>
 
 namespace TheLastBreath {
 
@@ -32,8 +33,8 @@ namespace TheLastBreath {
         };
 
         std::unordered_map<RE::FormID, BlockState> actorBlockStates;
+        mutable std::mutex statesMutex;
 
-        // REFACTORED: Broken down from monolithic OnActorHit
         bool ShouldProcessHit(RE::Actor* victim);
         float CalculateBaseStaminaLoss(RE::Actor* victim);
         void ProcessTimedBlock(RE::Actor* victim, RE::Actor* aggressor, float actualDamage);

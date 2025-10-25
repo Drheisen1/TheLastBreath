@@ -1,0 +1,76 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake: Configure",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--preset",
+                "vs2022-windows"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "detail": "Configure CMake project with vs2022-windows preset"
+        },
+        {
+            "label": "CMake: Build (Release)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "out/build/vs2022-windows",
+                "--config",
+                "Release"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "Build the project in Release mode",
+            "dependsOn": []
+        },
+        {
+            "label": "CMake: Clean",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "out/build/vs2022-windows",
+                "--target",
+                "clean",
+                "--config",
+                "Release"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": "build",
+            "detail": "Clean build artifacts"
+        },
+        {
+            "label": "CMake: Rebuild",
+            "type": "shell",
+            "dependsOn": [
+                "CMake: Clean",
+                "CMake: Build (Release)"
+            ],
+            "problemMatcher": [],
+            "group": "build",
+            "detail": "Clean and rebuild the project"
+        }
+    ]
+}

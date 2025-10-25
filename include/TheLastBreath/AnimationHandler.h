@@ -16,12 +16,5 @@ namespace TheLastBreath {
         AnimationEventHandler(AnimationEventHandler&&) = delete;
 
         void OnBowDrawn(RE::Actor* actor);
-        void OnBeginCastLeft(RE::Actor* actor);
-        void OnBeginCastRight(RE::Actor* actor);
-        void OnCastRelease(RE::Actor* actor);
-        void OnAttackStop(RE::Actor* actor);
-
-        float GetMagicSkillLevel(RE::Actor* actor, RE::MagicItem* spell);
-        bool SpellModifiesSpeed(RE::MagicItem* spell);
     };
 }

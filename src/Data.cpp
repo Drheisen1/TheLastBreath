@@ -62,4 +62,4 @@ namespace TheLastBreath {
             }
         }
     }
-}  // namespace TheLastBreath
+}

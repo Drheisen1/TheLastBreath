@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <unordered_map>
+#include <mutex>
 
 namespace TheLastBreath {
 
@@ -35,6 +36,7 @@ namespace TheLastBreath {
         };
 
         std::unordered_map<RE::FormID, ActorState> actorStates;
+        mutable std::mutex statesMutex; 
     };
 
 }

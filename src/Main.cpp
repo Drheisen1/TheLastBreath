@@ -1,7 +1,6 @@
 ﻿#include <SKSE/SKSE.h>
 #include "TheLastBreath/AnimationHandler.h"
-#include "TheLastBreath/CombatEventHandler.h"  
-#include "TheLastBreath/SlowMotion.h"
+#include "TheLastBreath/CombatEventHandler.h"
 #include "TheLastBreath/Config.h"
 #include "TheLastBreath/Hooks.h"
 #include "TheLastBreath/RangedStaminaHandler.h"
@@ -10,10 +9,12 @@
 #include "TheLastBreath/CombatHandler.h"
 #include "TheLastBreath/Data.h"
 #include "TheLastBreath/EldenCounterCompat.h"
-#include "TheLastBreath/ActorStateManager.h"
+#include <atomic>
+#include <thread>
 
 using namespace SKSE;
 using namespace SKSE::log;
+using namespace std::chrono_literals;
 
 namespace {
     constexpr const char* PLUGIN_NAME = "TheLastBreath";
@@ -43,61 +44,71 @@ namespace {
     std::atomic<bool> g_registered = false;
     std::atomic<bool> g_gameLoaded = false;
 
+    // Worker thread for continuous updates
+    static std::atomic_bool g_updateWorkerRunning{ false };
+    static std::thread g_updateWorker;
 
-    class UpdateHandler : public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
-    public:
-        static UpdateHandler* GetSingleton() {
-            static UpdateHandler singleton;
-            return &singleton;
-        }
+    static void StartUpdateWorker()
+    {
+        if (g_updateWorkerRunning.exchange(true)) return;
 
-        static void Register() {
-            auto ui = RE::UI::GetSingleton();
-            if (ui) {
-                ui->AddEventSink(GetSingleton());
-                logger::debug("UpdateHandler registered");
+        g_updateWorker = std::thread([]() {
+            while (g_updateWorkerRunning.load(std::memory_order_relaxed)) {
+                TheLastBreath::RangedStaminaHandler::GetSingleton()->Update();
+                TheLastBreath::ExhaustionHandler::GetSingleton()->Update();
+                TheLastBreath::TimedBlockHandler::GetSingleton()->Update();
+                TheLastBreath::CombatHandler::GetSingleton()->Update();
+                std::this_thread::sleep_for(100ms);
             }
-        }
+            });
+    }
 
-        RE::BSEventNotifyControl ProcessEvent(
-            const RE::MenuOpenCloseEvent* a_event,
-            RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override
-        {
-            // CRITICAL: Don't update if game is paused
-            if (RE::UI::GetSingleton()->GameIsPaused()) {
-                return RE::BSEventNotifyControl::kContinue;
-            }
-
-            // CRITICAL: Don't update during hit processing
-            auto player = RE::PlayerCharacter::GetSingleton();
-            if (player) {
-                auto process = player->GetActorRuntimeData().currentProcess;
-                if (process && process->middleHigh && process->middleHigh->lastHitData) {
-                    // Skip update if player was just hit (data still being processed)
-                    return RE::BSEventNotifyControl::kContinue;
-                }
-            }
-
-            // Run updates
-            // This is lightweight and runs on game thread
-            TheLastBreath::RangedStaminaHandler::GetSingleton()->Update();
-            TheLastBreath::ExhaustionHandler::GetSingleton()->Update();
-            TheLastBreath::TimedBlockHandler::GetSingleton()->Update();
-            TheLastBreath::CombatHandler::GetSingleton()->Update();
-            TheLastBreath::BlockEffectsHandler::GetSingleton()->Update();
-
-            return RE::BSEventNotifyControl::kContinue;
-        }
-
-    private:
-        UpdateHandler() = default;
-    };
+    static void StopUpdateWorker()
+    {
+        if (!g_updateWorkerRunning.exchange(false)) return;
+        if (g_updateWorker.joinable()) g_updateWorker.join();
+    }
 
     class InputEventHandler : public RE::BSTEventSink<RE::InputEvent*> {
     public:
         static InputEventHandler* GetSingleton() {
             static InputEventHandler singleton;
             return &singleton;
+        }
+
+        // Helper function to check if player can block (has weapon or shield)
+        static bool CanPlayerBlock(RE::PlayerCharacter* player) {
+            if (!player) return false;
+
+            // Check right hand (weapon slot)
+            auto rightHand = player->GetEquippedObject(false);
+            if (rightHand) {
+                auto weapon = rightHand->As<RE::TESObjectWEAP>();
+                if (weapon) {
+                    // Player has a weapon equipped - can block
+                    return true;
+                }
+            }
+
+            // Check left hand (shield/weapon slot)
+            auto leftHand = player->GetEquippedObject(true);
+            if (leftHand) {
+                // Check if it's armor (shield)
+                auto armor = leftHand->As<RE::TESObjectARMO>();
+                if (armor) {
+                    // Shields are armor, so if we have armor equipped in left hand, it's a shield
+                    return true;
+                }
+                // Check if it's a weapon (dual wielding)
+                auto weapon = leftHand->As<RE::TESObjectWEAP>();
+                if (weapon) {
+                    // Player has a weapon in left hand (dual wielding) - can block
+                    return true;
+                }
+            }
+
+            // No weapon or shield equipped - cannot block
+            return false;
         }
 
         virtual RE::BSEventNotifyControl ProcessEvent(
@@ -141,6 +152,10 @@ namespace {
 
                             // Check if this is our configured block button
                             if (keyCode == config->blockButton) {
+                                if (!CanPlayerBlock(player)) {
+                                    continue;
+                                }
+
                                 if (buttonEvent->IsDown() && buttonEvent->value > 0.0f) {
                                     logger::debug("Block button PRESSED (key: {})", keyCode);
                                     TheLastBreath::TimedBlockHandler::GetSingleton()->OnButtonPressed(player);
@@ -219,8 +234,6 @@ namespace {
         {
             logger::debug("kDataLoaded message received");
 
-            UpdateHandler::Register();
-
             // Load all game data (sounds, FX, etc.)
             TheLastBreath::Data::LoadData();
 
@@ -246,14 +259,6 @@ namespace {
                 logger::error("Failed to get script event source");
             }
 
-            if (auto ui = RE::UI::GetSingleton()) {
-                ui->AddEventSink(TheLastBreath::RangedStaminaHandler::GetSingleton());
-                logger::debug("Ranged stamina update handler registered");
-            }
-            else {
-                logger::error("Failed to get UI singleton");
-            }
-
             // Initialize Elden Counter compatibility
             TheLastBreath::EldenCounterCompat::GetSingleton()->Initialize();
 
@@ -268,10 +273,10 @@ namespace {
             g_registered.store(false);
             g_gameLoaded.store(true);
 
-            TheLastBreath::SlowMotionManager::GetSingleton()->ClearAll();
             TheLastBreath::ExhaustionHandler::GetSingleton()->ClearAll();
-            TheLastBreath::ActorStateManager::GetSingleton()->ClearAll();
             logger::debug("Ready - animation events will register on first player input");
+
+            StartUpdateWorker();
 
             break;
         }
@@ -279,7 +284,7 @@ namespace {
         case SKSE::MessagingInterface::kPreLoadGame:
         case SKSE::MessagingInterface::kDeleteGame:
         {
-            // Nothing special needed - updates will naturally stop being called
+            StopUpdateWorker();
             break;
         }
 

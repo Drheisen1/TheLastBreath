@@ -1,4 +1,5 @@
 #pragma once
+#include <mutex>
 
 namespace TheLastBreath {
 
@@ -19,13 +20,13 @@ namespace TheLastBreath {
 
         struct ExhaustionState {
             bool isExhausted = false;
-            // Store ORIGINAL values before exhaustion to avoid corruption
-            float originalSpeed = 0.0f;
-            float originalAttackDamage = 0.0f;
-            float originalDamageResist = 0.0f;
+            // Store DELTAS to revert on removal
+            float originalSpeed = 0.0f;          // Speed delta applied
+            float originalAttackDamage = 0.0f;   // Attack damage delta applied
         };
 
         std::unordered_map<RE::FormID, ExhaustionState> actorStates;
+        mutable std::mutex statesMutex; 
 
         void ApplyExhaustion(RE::Actor* actor);
         void RemoveExhaustion(RE::Actor* actor);

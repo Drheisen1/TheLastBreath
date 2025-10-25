@@ -6,6 +6,7 @@ namespace TheLastBreath {
     void ExhaustionHandler::Update() {
         auto config = Config::GetSingleton();
         if (!config->enableStaminaManagement) {
+            std::lock_guard<std::mutex> lock(statesMutex);
             if (!actorStates.empty()) {
                 ClearAll();
             }
@@ -16,6 +17,8 @@ namespace TheLastBreath {
         if (!player) return;
 
         auto formID = player->GetFormID();
+
+        std::lock_guard<std::mutex> lock(statesMutex);
 
         // OPTIMIZATION: Use try_emplace instead of operator[] to avoid double hash lookup
         auto [it, inserted] = actorStates.try_emplace(formID);
@@ -49,6 +52,7 @@ namespace TheLastBreath {
         auto avOwner = actor->AsActorValueOwner();
         auto formID = actor->GetFormID();
 
+        // NOTE: Mutex already held by caller (Update())
         // Get state (should already exist from Update())
         auto it = actorStates.find(formID);
         if (it == actorStates.end()) {
@@ -57,26 +61,24 @@ namespace TheLastBreath {
         }
         auto& state = it->second;
 
-        // BUG FIX: Store ORIGINAL values before modification
-        // This prevents corruption if actor gains other buffs while exhausted
-        state.originalSpeed = avOwner->GetActorValue(RE::ActorValue::kSpeedMult);
-        state.originalAttackDamage = avOwner->GetActorValue(RE::ActorValue::kAttackDamageMult);
-        state.originalDamageResist = avOwner->GetActorValue(RE::ActorValue::kDamageResist);
+        // Store current values BEFORE modification
+        float currentSpeed = avOwner->GetActorValue(RE::ActorValue::kSpeedMult);
+        float currentAttackDamage = avOwner->GetActorValue(RE::ActorValue::kAttackDamageMult);
 
-        // Apply debuffs from stored originals
-        float newSpeed = state.originalSpeed * (1.0f - config->exhaustionMovementSpeedDebuff);
-        avOwner->SetActorValue(RE::ActorValue::kSpeedMult, newSpeed);
+        // Calculate the CHANGE needed (negative = debuff)
+        float speedDelta = currentSpeed * -config->exhaustionMovementSpeedDebuff;
+        float attackDelta = currentAttackDamage * -config->exhaustionAttackDamageDebuff;
 
-        float newDamage = state.originalAttackDamage * (1.0f - config->exhaustionAttackDamageDebuff);
-        avOwner->SetActorValue(RE::ActorValue::kAttackDamageMult, newDamage);
+        // Store the deltas so we can reverse them exactly
+        state.originalSpeed = speedDelta;
+        state.originalAttackDamage = attackDelta;
 
-        float resistPenalty = (config->exhaustionDamageReceivedMult - 1.0f) * 100.0f;
-        avOwner->SetActorValue(RE::ActorValue::kDamageResist, state.originalDamageResist - resistPenalty);
+        // Apply using RestoreActorValue (delta-based)
+        avOwner->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kSpeedMult, speedDelta);
+        avOwner->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kAttackDamageMult, attackDelta);
 
-        logger::trace("Applied exhaustion debuffs - Speed: {:.0f}%, AttackDmg: {:.0f}%, DmgTaken: {:.0f}%",
-            (1.0f - config->exhaustionMovementSpeedDebuff) * 100.0f,
-            (1.0f - config->exhaustionAttackDamageDebuff) * 100.0f,
-            config->exhaustionDamageReceivedMult * 100.0f);
+        logger::debug("Applied exhaustion debuffs - Speed delta: {:.1f}, AttackDmg delta: {:.1f}",
+            speedDelta, attackDelta);
     }
 
     void ExhaustionHandler::RemoveExhaustion(RE::Actor* actor) {
@@ -85,6 +87,7 @@ namespace TheLastBreath {
         auto avOwner = actor->AsActorValueOwner();
         auto formID = actor->GetFormID();
 
+        // NOTE: Mutex already held by caller (Update() or ClearAll())
         // Get state
         auto it = actorStates.find(formID);
         if (it == actorStates.end()) {
@@ -93,20 +96,23 @@ namespace TheLastBreath {
         }
         auto& state = it->second;
 
-        // BUG FIX: Restore ORIGINAL stored values instead of calculating
-        // This prevents corruption if actor gained other buffs while exhausted
-        avOwner->SetActorValue(RE::ActorValue::kSpeedMult, state.originalSpeed);
-        avOwner->SetActorValue(RE::ActorValue::kAttackDamageMult, state.originalAttackDamage);
-        avOwner->SetActorValue(RE::ActorValue::kDamageResist, state.originalDamageResist);
+        // Restore by reversing the stored deltas
+        // Negate the deltas to reverse them
+        avOwner->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kSpeedMult, -state.originalSpeed);
+        avOwner->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kAttackDamageMult, -state.originalAttackDamage);
 
-        logger::trace("Removed exhaustion debuffs - restored original values");
+        logger::debug("Removed exhaustion debuffs - reversed deltas (Speed: {:.1f}, AttackDmg: {:.1f})",
+            -state.originalSpeed, -state.originalAttackDamage);
     }
 
     void ExhaustionHandler::ClearAll() {
+        // NOTE: Mutex already held by caller (Update())
         for (auto& [formID, state] : actorStates) {
             if (state.isExhausted) {
                 if (auto actor = RE::TESForm::LookupByID<RE::Actor>(formID)) {
-                    RemoveExhaustion(actor);
+                    if (!actor->IsDisabled() && !actor->IsDeleted()) {
+                        RemoveExhaustion(actor);
+                    }
                 }
             }
         }

@@ -10,7 +10,19 @@ namespace TheLastBreath {
         auto config = Config::GetSingleton();
         if (!config->enableTimedBlocking) return;
 
+        // Check skill requirement
+        if (config->enableTimedBlockSkillRequirement) {
+            float blockSkill = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kBlock);
+            if (blockSkill < config->timedBlockRequiredSkillLevel) {
+                logger::debug("Block skill ({:.1f}) below required level ({:.1f}) - timed blocking disabled",
+                    blockSkill, config->timedBlockRequiredSkillLevel);
+                return;
+            }
+        }
+
         auto formID = actor->GetFormID();
+
+        std::lock_guard<std::mutex> lock(statesMutex);
 
         // OPTIMIZATION: Use try_emplace instead of operator[]
         auto [it, inserted] = actorStates.try_emplace(formID);
@@ -28,6 +40,8 @@ namespace TheLastBreath {
     void TimedBlockHandler::OnButtonReleased(RE::Actor* actor) {
         if (!actor) return;
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         auto formID = actor->GetFormID();
         if (auto it = actorStates.find(formID); it != actorStates.end()) {
             actorStates.erase(it);
@@ -37,6 +51,8 @@ namespace TheLastBreath {
 
     bool TimedBlockHandler::IsTimedBlockWindowActive(RE::Actor* actor) const {
         if (!actor) return false;
+
+        std::lock_guard<std::mutex> lock(statesMutex);
 
         auto it = actorStates.find(actor->GetFormID());
         if (it == actorStates.end()) {
@@ -53,6 +69,8 @@ namespace TheLastBreath {
         auto config = Config::GetSingleton();
         if (!config->enableTimedBlocking) return;
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         auto now = std::chrono::steady_clock::now();
 
         for (auto& [formID, state] : actorStates) {
@@ -67,7 +85,7 @@ namespace TheLastBreath {
 
                     // Get actor and determine which window will be used
                     RE::Actor* actor = RE::TESForm::LookupByID<RE::Actor>(formID);
-                    if (actor) {
+                    if (actor && !actor->IsDisabled() && !actor->IsDeleted()) {
                         auto blockEffects = BlockEffectsHandler::GetSingleton();
                         uint32_t currentParryCount = blockEffects->GetCurrentParryCount(actor);
                         uint32_t nextParryLevel = currentParryCount + 1;
@@ -96,6 +114,8 @@ namespace TheLastBreath {
         auto config = Config::GetSingleton();
         if (!config->enableTimedBlocking) return BlockType::Regular;
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         auto formID = actor->GetFormID();
         auto it = actorStates.find(formID);
 
@@ -116,7 +136,7 @@ namespace TheLastBreath {
         }
 
         // ============================================
-        // CHECK ANIMATION DELAY DIRECTLY (don't rely on Update() flag)
+        // CHECK ANIMATION DELAY DIRECTLY
         // ============================================
         auto now = std::chrono::steady_clock::now();
         auto timeSincePress = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -129,7 +149,6 @@ namespace TheLastBreath {
             return BlockType::Regular;
         }
 
-        // Animation delay passed - now check if within parry window
         // Calculate time since delay passed (for window duration check)
         float timeInWindow = timeSincePress - config->timedBlockAnimationDelay;
 
@@ -173,6 +192,8 @@ namespace TheLastBreath {
     void TimedBlockHandler::ConsumeTimedBlock(RE::Actor* actor) {
         if (!actor) return;
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         auto formID = actor->GetFormID();
         if (auto it = actorStates.find(formID); it != actorStates.end()) {
             it->second.windowConsumed = true;
@@ -182,6 +203,8 @@ namespace TheLastBreath {
 
     void TimedBlockHandler::ClearActor(RE::Actor* actor) {
         if (!actor) return;
+
+        std::lock_guard<std::mutex> lock(statesMutex);
 
         auto formID = actor->GetFormID();
         if (auto it = actorStates.find(formID); it != actorStates.end()) {

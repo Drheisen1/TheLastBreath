@@ -1,6 +1,5 @@
 #include "TheLastBreath/CombatEventHandler.h"
 #include "TheLastBreath/AnimationHandler.h"
-#include "TheLastBreath/SlowMotion.h"
 #include "TheLastBreath/RangedStaminaHandler.h"
 #include "TheLastBreath/Config.h"
 
@@ -64,7 +63,6 @@ namespace TheLastBreath {
                     actor->GetName(), formID);
 
                 // Clear any active effects
-                SlowMotionManager::GetSingleton()->ClearAllSlowdowns(actor);
                 RangedStaminaHandler::GetSingleton()->ClearActor(actor);
             }
         }

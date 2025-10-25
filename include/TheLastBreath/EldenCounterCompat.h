@@ -12,7 +12,7 @@ namespace TheLastBreath {
         void Initialize();
         bool IsAvailable() const { return isAvailable; }
 
-        // Just apply trigger spell - EC's DLL does the rest
+        // Just apply trigger spell
         void TriggerCounter(RE::Actor* actor, bool isPerfectParry);
 
     private:

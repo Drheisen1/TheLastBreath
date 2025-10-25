@@ -51,10 +51,11 @@ namespace TheLastBreath {
         exhaustionStaminaThreshold = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionStaminaThreshold", 20.0));
         exhaustionMovementSpeedDebuff = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionMovementSpeedDebuff", 0.20));
         exhaustionAttackDamageDebuff = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionAttackDamageDebuff", 0.25));
-        exhaustionDamageReceivedMult = static_cast<float>(ini.GetDoubleValue("Exhaustion", "fExhaustionDamageReceivedMult", 1.25));
 
         // [TimedBlocking]
         enableTimedBlocking = ini.GetBoolValue("TimedBlocking", "bEnableTimedBlocking", true);
+        enableTimedBlockSkillRequirement = ini.GetBoolValue("TimedBlocking", "bEnableTimedBlockSkillRequirement", false);
+        timedBlockRequiredSkillLevel = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockRequiredSkillLevel", 0.0));
         timedBlockWindow1 = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockWindow1", 0.3));
         timedBlockWindow2 = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockWindow2", 0.25));
         timedBlockWindow3 = static_cast<float>(ini.GetDoubleValue("TimedBlocking", "fTimedBlockWindow3", 0.2));
@@ -87,40 +88,9 @@ namespace TheLastBreath {
         enableEldenCounter = ini.GetBoolValue("EldenCounter", "bEnableEldenCounter", false);
         eldenCounterOnlyTimedBlocks = ini.GetBoolValue("EldenCounter", "bEldenCounterOnlyTimedBlocks", true);
         eldenCounterOnlyPerfectParry = ini.GetBoolValue("EldenCounter", "bEldenCounterOnlyPerfectParry", false);
-        eldenCounterEnableIFrames = ini.GetBoolValue("EldenCounter", "bEldenCounterEnableIFrames", true);
-        eldenCounterDuration = static_cast<float>(ini.GetDoubleValue("EldenCounter", "fEldenCounterDuration", 1.5));
-        eldenCounterIFrameDuration = static_cast<float>(ini.GetDoubleValue("EldenCounter", "fEldenCounterIFrameDuration", 1.0));
 
         // [NPCs]
         applyToNPCs = ini.GetBoolValue("NPCs", "bApplyToNPCs", true);
-
-        // [Bow]
-        enableBowDebuff = ini.GetBoolValue("Bow", "bEnableBowDebuff", true);
-        bowMultipliers[0] = static_cast<float>(ini.GetDoubleValue("Bow", "fBowNoviceMultiplier", 0.5));
-        bowMultipliers[1] = static_cast<float>(ini.GetDoubleValue("Bow", "fBowApprenticeMultiplier", 0.6));
-        bowMultipliers[2] = static_cast<float>(ini.GetDoubleValue("Bow", "fBowExpertMultiplier", 0.7));
-        bowMultipliers[3] = static_cast<float>(ini.GetDoubleValue("Bow", "fBowMasterMultiplier", 0.8));
-
-        // [Crossbow]
-        enableCrossbowDebuff = ini.GetBoolValue("Crossbow", "bEnableCrossbowDebuff", true);
-        crossbowMultipliers[0] = static_cast<float>(ini.GetDoubleValue("Crossbow", "fCrossbowNoviceMultiplier", 0.5));
-        crossbowMultipliers[1] = static_cast<float>(ini.GetDoubleValue("Crossbow", "fCrossbowApprenticeMultiplier", 0.6));
-        crossbowMultipliers[2] = static_cast<float>(ini.GetDoubleValue("Crossbow", "fCrossbowExpertMultiplier", 0.7));
-        crossbowMultipliers[3] = static_cast<float>(ini.GetDoubleValue("Crossbow", "fCrossbowMasterMultiplier", 0.8));
-
-        // [Cast]
-        enableCastDebuff = ini.GetBoolValue("Cast", "bEnableCastDebuff", true);
-        castMultipliers[0] = static_cast<float>(ini.GetDoubleValue("Cast", "fCastNoviceMultiplier", 0.5));
-        castMultipliers[1] = static_cast<float>(ini.GetDoubleValue("Cast", "fCastApprenticeMultiplier", 0.6));
-        castMultipliers[2] = static_cast<float>(ini.GetDoubleValue("Cast", "fCastExpertMultiplier", 0.7));
-        castMultipliers[3] = static_cast<float>(ini.GetDoubleValue("Cast", "fCastMasterMultiplier", 0.8));
-
-        // [DualCast]
-        enableDualCastDebuff = ini.GetBoolValue("DualCast", "bEnableDualCastDebuff", true);
-        dualCastMultipliers[0] = static_cast<float>(ini.GetDoubleValue("DualCast", "fDualCastNoviceMultiplier", 0.4));
-        dualCastMultipliers[1] = static_cast<float>(ini.GetDoubleValue("DualCast", "fDualCastApprenticeMultiplier", 0.5));
-        dualCastMultipliers[2] = static_cast<float>(ini.GetDoubleValue("DualCast", "fDualCastExpertMultiplier", 0.6));
-        dualCastMultipliers[3] = static_cast<float>(ini.GetDoubleValue("DualCast", "fDualCastMasterMultiplier", 0.7));
 
         // [Debug]
         logLevel = static_cast<int>(ini.GetLongValue("Debug", "iLogLevel", 1));
@@ -158,9 +128,10 @@ namespace TheLastBreath {
         ini.SetDoubleValue("Exhaustion", "fExhaustionStaminaThreshold", exhaustionStaminaThreshold);
         ini.SetDoubleValue("Exhaustion", "fExhaustionMovementSpeedDebuff", exhaustionMovementSpeedDebuff);
         ini.SetDoubleValue("Exhaustion", "fExhaustionAttackDamageDebuff", exhaustionAttackDamageDebuff);
-        ini.SetDoubleValue("Exhaustion", "fExhaustionDamageReceivedMult", exhaustionDamageReceivedMult);
 
         ini.SetBoolValue("TimedBlocking", "bEnableTimedBlocking", enableTimedBlocking);
+        ini.SetBoolValue("TimedBlocking", "bEnableTimedBlockSkillRequirement", enableTimedBlockSkillRequirement);
+        ini.SetDoubleValue("TimedBlocking", "fTimedBlockRequiredSkillLevel", timedBlockRequiredSkillLevel);
         ini.SetDoubleValue("TimedBlocking", "fTimedBlockWindow1", timedBlockWindow1);
         ini.SetDoubleValue("TimedBlocking", "fTimedBlockWindow2", timedBlockWindow2);
         ini.SetDoubleValue("TimedBlocking", "fTimedBlockWindow3", timedBlockWindow3);
@@ -192,35 +163,8 @@ namespace TheLastBreath {
         ini.SetBoolValue("EldenCounter", "bEnableEldenCounter", enableEldenCounter);
         ini.SetBoolValue("EldenCounter", "bEldenCounterOnlyTimedBlocks", eldenCounterOnlyTimedBlocks);
         ini.SetBoolValue("EldenCounter", "bEldenCounterOnlyPerfectParry", eldenCounterOnlyPerfectParry);
-        ini.SetBoolValue("EldenCounter", "bEnableIFrames", eldenCounterEnableIFrames);
-        ini.SetDoubleValue("EldenCounter", "fEldenCounterDuration", eldenCounterDuration);
-        ini.SetDoubleValue("EldenCounter", "fEldenCounterIFrameDuration", eldenCounterIFrameDuration);
 
         ini.SetBoolValue("NPCs", "bApplyToNPCs", applyToNPCs);
-
-        ini.SetBoolValue("Bow", "bEnableBowDebuff", enableBowDebuff);
-        ini.SetDoubleValue("Bow", "fBowNoviceMultiplier", bowMultipliers[0]);
-        ini.SetDoubleValue("Bow", "fBowApprenticeMultiplier", bowMultipliers[1]);
-        ini.SetDoubleValue("Bow", "fBowExpertMultiplier", bowMultipliers[2]);
-        ini.SetDoubleValue("Bow", "fBowMasterMultiplier", bowMultipliers[3]);
-
-        ini.SetBoolValue("Crossbow", "bEnableCrossbowDebuff", enableCrossbowDebuff);
-        ini.SetDoubleValue("Crossbow", "fCrossbowNoviceMultiplier", crossbowMultipliers[0]);
-        ini.SetDoubleValue("Crossbow", "fCrossbowApprenticeMultiplier", crossbowMultipliers[1]);
-        ini.SetDoubleValue("Crossbow", "fCrossbowExpertMultiplier", crossbowMultipliers[2]);
-        ini.SetDoubleValue("Crossbow", "fCrossbowMasterMultiplier", crossbowMultipliers[3]);
-
-        ini.SetBoolValue("Cast", "bEnableCastDebuff", enableCastDebuff);
-        ini.SetDoubleValue("Cast", "fCastNoviceMultiplier", castMultipliers[0]);
-        ini.SetDoubleValue("Cast", "fCastApprenticeMultiplier", castMultipliers[1]);
-        ini.SetDoubleValue("Cast", "fCastExpertMultiplier", castMultipliers[2]);
-        ini.SetDoubleValue("Cast", "fCastMasterMultiplier", castMultipliers[3]);
-
-        ini.SetBoolValue("DualCast", "bEnableDualCastDebuff", enableDualCastDebuff);
-        ini.SetDoubleValue("DualCast", "fDualCastNoviceMultiplier", dualCastMultipliers[0]);
-        ini.SetDoubleValue("DualCast", "fDualCastApprenticeMultiplier", dualCastMultipliers[1]);
-        ini.SetDoubleValue("DualCast", "fDualCastExpertMultiplier", dualCastMultipliers[2]);
-        ini.SetDoubleValue("DualCast", "fDualCastMasterMultiplier", dualCastMultipliers[3]);
 
         ini.SetLongValue("Debug", "iLogLevel", logLevel);
 

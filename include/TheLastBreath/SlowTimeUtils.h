@@ -7,12 +7,6 @@ namespace TheLastBreath {
 
     namespace SlowTimeUtils {
 
-        /**
-         * Slow down game time for a set period.
-         * @param duration Duration of the slow time in seconds.
-         * @param percentage Relative time speed (0.1 = 10% speed, 1.0 = normal).
-         * @param useSmoothing If true, smoothly transitions to target speed (cinematic).
-         */
         inline void ApplySlowTime(float duration, float percentage, bool useSmoothing = true) {
             if (duration <= 0.0f || percentage <= 0.0f || percentage >= 1.0f) {
                 return;
@@ -36,6 +30,6 @@ namespace TheLastBreath {
             resetThread.detach();
         }
 
-    }  // namespace SlowTimeUtils
+    } 
 
-}  // namespace TheLastBreath
+} 

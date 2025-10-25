@@ -22,7 +22,6 @@ add_library(
     src/AnimationHandler.cpp
     src/CombatHandler.cpp
     src/CombatEventHandler.cpp
-    src/SlowMotion.cpp
     src/Hooks.cpp
     src/RangedStaminaHandler.cpp
     src/ExhaustionHandler.cpp
@@ -32,8 +31,7 @@ add_library(
     src/Config.cpp
     src/Data.cpp
     src/HitProcessor.cpp
-    src/EldenCounterCompact.cpp
- "src/ActorStateManager.cpp")
+    src/EldenCounterCompact.cpp)
 
 target_include_directories(
     ${PROJECT_NAME}

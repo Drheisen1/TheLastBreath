@@ -44,12 +44,13 @@ namespace TheLastBreath {
         // Exhaustion System
         bool enableExhaustionDebuff = true;
         float exhaustionStaminaThreshold = 20.0f;
-        float exhaustionMovementSpeedDebuff = 0.20f;
-        float exhaustionAttackDamageDebuff = 0.25f;
-        float exhaustionDamageReceivedMult = 1.25f;
+        float exhaustionMovementSpeedDebuff = 0.20f;      // 20% movement speed reduction
+        float exhaustionAttackDamageDebuff = 0.25f;       // 25% attack damage reduction
 
         // Timed Blocking System
         bool enableTimedBlocking = true;
+        bool enableTimedBlockSkillRequirement = false;
+        float timedBlockRequiredSkillLevel = 0.0f;
         float timedBlockWindow1 = 0.3f;   // Parry 1 (easiest)
         float timedBlockWindow2 = 0.25f;  // Parry 2
         float timedBlockWindow3 = 0.2f;   // Parry 3
@@ -84,28 +85,9 @@ namespace TheLastBreath {
         bool enableEldenCounter = false;                    // Master toggle
         bool eldenCounterOnlyTimedBlocks = true;            // Only on successful timed blocks
         bool eldenCounterOnlyPerfectParry = false;          // Only on perfect parry (5th)
-        bool eldenCounterEnableIFrames = true;       // Grant invincibility during counter
-        float eldenCounterDuration = 1.5f;           // Counter window duration in seconds
-        float eldenCounterIFrameDuration = 1.0f;     // I-frame duration (can be different)
 
-        // ===== CASTING DEBUFF =====
+        // ===== NPCS =====
         bool applyToNPCs = true;
-
-        // Bow
-        bool enableBowDebuff = true;
-        std::array<float, 4> bowMultipliers = { 0.5f, 0.6f, 0.7f, 0.8f };
-
-        // Crossbow
-        bool enableCrossbowDebuff = true;
-        std::array<float, 4> crossbowMultipliers = { 0.5f, 0.6f, 0.7f, 0.8f };
-
-        // Cast
-        bool enableCastDebuff = true;
-        std::array<float, 4> castMultipliers = { 0.5f, 0.6f, 0.7f, 0.8f };
-
-        // Dual Cast
-        bool enableDualCastDebuff = true;
-        std::array<float, 4> dualCastMultipliers = { 0.4f, 0.5f, 0.6f, 0.7f };
 
         // ===== DEBUG =====
         int logLevel = 1;  // 0=trace, 1=debug, 2=info, 3=warn, 4=error, 5=critical

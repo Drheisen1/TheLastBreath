@@ -23,7 +23,7 @@ namespace TheLastBreath {
         typedef void(_fastcall* tStaggerActor)(RE::Actor* a_target, RE::Actor* a_aggressor, float a_magnitude);
         inline static REL::Relocation<tStaggerActor> StaggerActor{ RELOCATION_ID(36700, 37710) };
 
-        // Set Global Time Multiplier (using BSTimer directly)
+        // Set BSTimer function
         inline void SGTM(float a_multiplier, bool a_useSmoothing = true) {
             // Access BSTimer singleton directly
             REL::Relocation<RE::BSTimer**> singleton{ RELOCATION_ID(523657, 410196) };
@@ -37,5 +37,5 @@ namespace TheLastBreath {
             }
         }
 
-    } // namespace Offsets
-} // namespace TheLastBreath
+    } 
+} 

@@ -21,6 +21,8 @@ namespace TheLastBreath {
 
         auto formID = actor->GetFormID();
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         // OPTIMIZATION: Use try_emplace instead of operator[]
         auto [it, inserted] = actorStates.try_emplace(formID);
         auto& state = it->second;
@@ -60,6 +62,8 @@ namespace TheLastBreath {
             }
         }
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         const auto formID = actor->GetFormID();
         if (auto it = actorStates.find(formID); it != actorStates.end()) {
             actorStates.erase(it);
@@ -68,17 +72,21 @@ namespace TheLastBreath {
 
     void RangedStaminaHandler::Update() {
         auto config = Config::GetSingleton();
+
         if (!config->enableStaminaManagement || !config->enableRangedStaminaCost || !config->enableRangedHoldStaminaDrain) {
             return;
         }
+
+        std::lock_guard<std::mutex> lock(statesMutex);
 
         auto now = std::chrono::steady_clock::now();
 
         for (auto it = actorStates.begin(); it != actorStates.end();) {
             auto& [formID, state] = *it;
+            logger::trace("Processing actor FormID: {:X}, isDrawn: {}", formID, state.isDrawn);
 
             RE::Actor* actor = RE::TESForm::LookupByID<RE::Actor>(formID);
-            if (!actor) {
+            if (!actor || actor->IsDisabled() || actor->IsDeleted()) {
                 it = actorStates.erase(it);
                 continue;
             }
@@ -140,11 +148,13 @@ namespace TheLastBreath {
 
     bool RangedStaminaHandler::IsActorTracked(RE::Actor* actor) const {
         if (!actor) return false;
+        std::lock_guard<std::mutex> lock(statesMutex);
         return actorStates.find(actor->GetFormID()) != actorStates.end();
     }
 
     void RangedStaminaHandler::ClearActor(RE::Actor* actor) {
         if (!actor) return;
+        std::lock_guard<std::mutex> lock(statesMutex);
         auto formID = actor->GetFormID();
         if (auto it = actorStates.find(formID); it != actorStates.end()) {
             logger::debug("Clearing ranged stamina tracking for actor");

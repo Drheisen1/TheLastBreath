@@ -89,7 +89,7 @@ namespace TheLastBreath {
         logger::info("=== ELDEN COUNTER TRIGGERED ===");
         logger::info("  - Perfect Parry: {}", isPerfectParry);
 
-        // Just add the trigger spell - EC's DLL handles everything else
+        // Just add the trigger spell
         actor->AddSpell(triggerSpell);
         logger::info("  - Applied trigger spell - Elden Counter's DLL will handle the rest");
     }

@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <mutex>
 
 namespace TheLastBreath {
 
@@ -41,6 +42,7 @@ namespace TheLastBreath {
         };
 
         std::unordered_map<RE::FormID, BlockState> actorStates;
+        mutable std::mutex statesMutex;
     };
 
 }

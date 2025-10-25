@@ -1,6 +1,7 @@
 #pragma once
 #include <unordered_map>
 #include <chrono>
+#include <mutex>
 
 namespace TheLastBreath {
 
@@ -60,6 +61,7 @@ namespace TheLastBreath {
         };
 
         std::unordered_map<RE::FormID, TimedBlockState> actorStates;
+        mutable std::mutex statesMutex;  // Protects actorStates from race conditions
 
         // Determine what equipment the blocker is using
         BlockEquipmentType GetBlockEquipmentType(RE::Actor* blocker);

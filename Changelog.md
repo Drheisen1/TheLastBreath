@@ -1,4 +1,4 @@
-The Last Breath Changelog V1.0.0 BETA
+The Last Breath Changelog V0.0.1 BETA
 
 1) Stamina Management System:
 - Introduced a new stamina management system that requires players to monitor their stamina levels during gameplay.
@@ -8,7 +8,7 @@ Unchanged.
 
 b) Light Attacks:
 - Light attacks cost a percentage of heavy attack stamina. This will allow it to scale with player stats and provide a more balanced combat experience.
-- The percentage can be tweaked, default is set to 30%.
+- The percentage can be tweaked, default is set to 35%.
 - Can be turned off entirely.
 
 c) Jumping:
@@ -36,8 +36,7 @@ e) Blocking:
 f) Exhaustion Debuff:
 - When stamina reaches a threshold, players will receive an exhaustion debuff. The threshold is configurable, Default is set to 20 Points.
 - Attack damage is lowered by 25%. this can be tweaked.
-- movement speed is lowered by 20%. this can be tweaked.
-- damage recieved is increased by 15%. this can be tweaked.
+- movement speed is lowered by 30%. this can be tweaked.
 - Can be turned off entirely.
 
 g) Stamina Loss on hit:

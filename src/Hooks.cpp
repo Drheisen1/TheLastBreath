@@ -40,6 +40,7 @@ namespace TheLastBreath {
         }
 
         static float GetAttackStaminaCost(RE::ActorValueOwner* avOwner, RE::BGSAttackData* attackData) {
+
             auto config = Config::GetSingleton();
 
             if (!config->enableStaminaManagement || !config->enableLightAttackStamina) {
@@ -139,7 +140,6 @@ namespace TheLastBreath {
             // Call original function (damage gets calculated with modified hitData)
             _ProcessHitEvent(a_this, a_hitData);
         }
-
         // ============================================
         // INSTALL FUNCTIONS
         // ============================================

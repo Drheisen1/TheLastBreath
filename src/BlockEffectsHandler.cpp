@@ -10,6 +10,8 @@ namespace TheLastBreath {
     uint32_t BlockEffectsHandler::GetCurrentParryCount(RE::Actor* actor) const {
         if (!actor) return 0;
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         auto it = actorStates.find(actor->GetFormID());
         if (it == actorStates.end()) return 0;
 
@@ -64,6 +66,8 @@ namespace TheLastBreath {
 
         auto config = Config::GetSingleton();
         auto formID = blocker->GetFormID();
+
+        std::lock_guard<std::mutex> lock(statesMutex);
 
         // OPTIMIZATION: Use try_emplace instead of operator[]
         auto [it, inserted] = actorStates.try_emplace(formID);
@@ -155,6 +159,8 @@ namespace TheLastBreath {
     void BlockEffectsHandler::OnTimedBlockFailed(RE::Actor* blocker) {
         if (!blocker) return;
 
+        std::lock_guard<std::mutex> lock(statesMutex);
+
         auto formID = blocker->GetFormID();
         auto it = actorStates.find(formID);
         if (it != actorStates.end()) {
@@ -167,6 +173,8 @@ namespace TheLastBreath {
     void BlockEffectsHandler::Update() {
         auto config = Config::GetSingleton();
         auto now = std::chrono::steady_clock::now();
+
+        std::lock_guard<std::mutex> lock(statesMutex);
 
         // Check for timeout on all active parry sequences
         for (auto it = actorStates.begin(); it != actorStates.end();) {
@@ -193,6 +201,8 @@ namespace TheLastBreath {
 
     void BlockEffectsHandler::ClearActor(RE::Actor* actor) {
         if (!actor) return;
+
+        std::lock_guard<std::mutex> lock(statesMutex);
 
         auto formID = actor->GetFormID();
         if (auto it = actorStates.find(formID); it != actorStates.end()) {
@@ -257,17 +267,29 @@ namespace TheLastBreath {
 
         // Spawn explosions based on parry level
         if (Data::BlockSpark && Data::BlockSparkFlare) {
-            Offsets::PlaceAtMe(blockFXNode, Data::BlockSpark, 1, false, false);
-            Offsets::PlaceAtMe(blockFXNode, Data::BlockSparkFlare, 1, false, false);
+            auto spark = Offsets::PlaceAtMe(blockFXNode, Data::BlockSpark, 1, false, false);
+            auto flare = Offsets::PlaceAtMe(blockFXNode, Data::BlockSparkFlare, 1, false, false);
 
             // Spawn ring explosion for perfect parry (parry 5)
             if (parryLevel == 5 && Data::BlockSparkRing) {
-                Offsets::PlaceAtMe(blockFXNode, Data::BlockSparkRing, 1, false, false);
-                logger::info("Spawned PERFECT PARRY spark with ring at {} node", nodeName);
+                auto ring = Offsets::PlaceAtMe(blockFXNode, Data::BlockSparkRing, 1, false, false);
+                if (spark && flare && ring) {
+                    logger::info("Spawned PERFECT PARRY spark with ring at {} node", nodeName);
+                } else {
+                    logger::warn("Failed to spawn some perfect parry effects (spark: {}, flare: {}, ring: {})",
+                        spark != nullptr, flare != nullptr, ring != nullptr);
+                }
             }
             else {
-                logger::debug("Spawned parry {} spark at {} node", parryLevel, nodeName);
+                if (spark && flare) {
+                    logger::debug("Spawned parry {} spark at {} node", parryLevel, nodeName);
+                } else {
+                    logger::warn("Failed to spawn some parry effects (spark: {}, flare: {})",
+                        spark != nullptr, flare != nullptr);
+                }
             }
+        } else {
+            logger::error("BlockSpark or BlockSparkFlare not loaded!");
         }
 
         // Immediately delete the activator
