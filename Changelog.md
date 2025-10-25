@@ -42,19 +42,17 @@ f) Exhaustion Debuff:
 g) Stamina Loss on hit:
 - gradual, stamina loss is equal to (100-n)%*15, where n = armor skill level. 15 is configurable, can be turned off entirely
 
-2) Casting Slow Debuff:
-- any sort of casting (spells, staves, etc.) will apply a slow debuff to the caster.
-- The slow percentage can be tweaked, Default is set to 50%.
-- scales based on the skill level of the spell type being cast.
-- Heavier debuff for dual casting.
-- Can be turned off entirely.
+2) Timed Blocking:
+- Tracks when the block key is pressed, after a very slight animation delay (configurable), the timed block window begins, blocking an attack in this window can have different effects depending on the ini configuration, currently, hitting a successfull timed block:
+- Recovers 20 stamina and negates the blocking damage by 50%.
+
+- Subsequent timed blocks become progressively stronger if hit within a window of time, this window is seperate from the actual timed block window, and it increases with eache successful timed block.
+
+- every timed block in the sequence staggers the enemy harder, on the 5th timed block (perfect parry) the enemy is completely staggered, and an elden counter can be initiated (by pressing the power attack button, i didnt change how elden counter works only it's conditions)
+
+- every timed block in the sequence becomes progressively harder to land by narrowing the window.
+
+- Timed block is entriely locked behind a 45 block skill requirement.
 
 
-TO DO:
-- Implement Stamina loss on blocking a hit . -> Blocking an attack will drain a flat amount of stamina.
-- Implement a timed block system. -> Successful timed blocks will reduce or negate stamina loss.
-- Add stamina Drain for high carry weight.
-
-
-Poise System: Still being studied.
-
+Everything said so far is configurable, and can be toggled on/off
